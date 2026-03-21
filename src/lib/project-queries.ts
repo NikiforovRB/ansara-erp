@@ -1,0 +1,213 @@
+import { asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { db } from "@/lib/db";
+import {
+  backlogLists,
+  backlogTasks,
+  documents,
+  paymentLedger,
+  paymentTextBlocks,
+  projectDeadlines,
+  projects,
+  stageTasks,
+  stages,
+  timelineEntries,
+  timelineImages,
+  timelineLinks,
+  users,
+} from "@/lib/db/schema";
+
+export type ProjectStatusFilter = "active" | "paused" | "completed";
+
+export async function listProjectsWithMeta(status: ProjectStatusFilter) {
+  const rows = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.status, status))
+    .orderBy(asc(projects.dashboardSortOrder), desc(projects.updatedAt));
+
+  if (!rows.length) return [];
+
+  const ids = rows.map((r) => r.id);
+
+  const deadlines = await db
+    .select()
+    .from(projectDeadlines)
+    .where(inArray(projectDeadlines.projectId, ids));
+
+  const deadlineByProject = new Map(
+    deadlines.map((d) => [d.projectId, d]),
+  );
+
+  const sums = await db
+    .select({
+      projectId: paymentLedger.projectId,
+      total: sql<number>`coalesce(sum(${paymentLedger.amountRubles}), 0)::int`.mapWith(
+        Number,
+      ),
+    })
+    .from(paymentLedger)
+    .where(inArray(paymentLedger.projectId, ids))
+    .groupBy(paymentLedger.projectId);
+
+  const paidByProject = new Map(sums.map((s) => [s.projectId, s.total]));
+
+  const payBlocks = await db
+    .select()
+    .from(paymentTextBlocks)
+    .where(inArray(paymentTextBlocks.projectId, ids))
+    .orderBy(asc(paymentTextBlocks.sortOrder));
+
+  const blocksByProject = new Map<string, typeof payBlocks>();
+  for (const b of payBlocks) {
+    if (!blocksByProject.has(b.projectId)) blocksByProject.set(b.projectId, []);
+    const arr = blocksByProject.get(b.projectId)!;
+    if (arr.length < 4) arr.push(b);
+  }
+
+  const backlogRows = await db
+    .select({
+      list: backlogLists,
+      assignee: users,
+    })
+    .from(backlogLists)
+    .leftJoin(users, eq(backlogLists.assigneeUserId, users.id))
+    .where(inArray(backlogLists.projectId, ids))
+    .orderBy(asc(backlogLists.sortOrder), desc(backlogLists.id));
+
+  const listsByProject = new Map<string, typeof backlogRows>();
+  for (const row of backlogRows) {
+    const pid = row.list.projectId;
+    if (!listsByProject.has(pid)) listsByProject.set(pid, []);
+    listsByProject.get(pid)!.push(row);
+  }
+
+  return rows.map((p) => {
+    const lists = listsByProject.get(p.id) ?? [];
+    const last = lists[lists.length - 1];
+    return {
+      project: p,
+      deadline: deadlineByProject.get(p.id) ?? null,
+      paidRubles: paidByProject.get(p.id) ?? 0,
+      paymentBlocks: blocksByProject.get(p.id) ?? [],
+      backlogPreview: last
+        ? {
+            assignee: last.assignee,
+          }
+        : null,
+    };
+  });
+}
+
+export async function getProjectFull(projectId: string) {
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  if (!project) return null;
+
+  const [deadline] = await db
+    .select()
+    .from(projectDeadlines)
+    .where(eq(projectDeadlines.projectId, projectId))
+    .limit(1);
+
+  const entries = await db
+    .select()
+    .from(timelineEntries)
+    .where(eq(timelineEntries.projectId, projectId))
+    .orderBy(asc(timelineEntries.sortOrder), asc(timelineEntries.entryDate));
+
+  const entryIds = entries.map((e) => e.id);
+  let images: (typeof timelineImages.$inferSelect)[] = [];
+  let links: (typeof timelineLinks.$inferSelect)[] = [];
+  if (entryIds.length) {
+    images = await db
+      .select()
+      .from(timelineImages)
+      .where(inArray(timelineImages.entryId, entryIds))
+      .orderBy(asc(timelineImages.sortOrder));
+    links = await db
+      .select()
+      .from(timelineLinks)
+      .where(inArray(timelineLinks.entryId, entryIds))
+      .orderBy(asc(timelineLinks.sortOrder));
+  }
+
+  const stagesRows = await db
+    .select()
+    .from(stages)
+    .where(eq(stages.projectId, projectId))
+    .orderBy(asc(stages.sortOrder));
+
+  const stageIds = stagesRows.map((s) => s.id);
+  let tasks: (typeof stageTasks.$inferSelect)[] = [];
+  if (stageIds.length) {
+    tasks = await db
+      .select()
+      .from(stageTasks)
+      .where(inArray(stageTasks.stageId, stageIds))
+      .orderBy(asc(stageTasks.sortOrder));
+  }
+
+  const ledger = await db
+    .select()
+    .from(paymentLedger)
+    .where(eq(paymentLedger.projectId, projectId))
+    .orderBy(desc(paymentLedger.paymentDate));
+
+  const blocks = await db
+    .select()
+    .from(paymentTextBlocks)
+    .where(eq(paymentTextBlocks.projectId, projectId))
+    .orderBy(asc(paymentTextBlocks.sortOrder));
+
+  const docs = await db
+    .select()
+    .from(documents)
+    .where(eq(documents.projectId, projectId))
+    .orderBy(desc(documents.docDate));
+
+  const blists = await db
+    .select({
+      list: backlogLists,
+      assignee: users,
+    })
+    .from(backlogLists)
+    .leftJoin(users, eq(backlogLists.assigneeUserId, users.id))
+    .where(eq(backlogLists.projectId, projectId))
+    .orderBy(asc(backlogLists.sortOrder));
+
+  const blids = blists.map((b) => b.list.id);
+  let btasks: (typeof backlogTasks.$inferSelect)[] = [];
+  if (blids.length) {
+    btasks = await db
+      .select()
+      .from(backlogTasks)
+      .where(inArray(backlogTasks.listId, blids))
+      .orderBy(asc(backlogTasks.sortOrder));
+  }
+
+  return {
+    project,
+    deadline: deadline ?? null,
+    timeline: { entries, images, links },
+    stages: stagesRows,
+    stageTasks: tasks,
+    payments: {
+      ledger,
+      textBlocks: blocks,
+      documents: docs,
+    },
+    backlog: { lists: blists, tasks: btasks },
+  };
+}
+
+export async function getProjectBySlug(slug: string) {
+  const [p] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.slug, slug))
+    .limit(1);
+  return p ?? null;
+}

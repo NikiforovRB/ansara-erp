@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1774082084509,
+      "tag": "0000_conscious_arachne",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1740061200000,
+      "tag": "0001_seed_admin_rodion",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1740064800000,
+      "tag": "0002_fix_rodion_password_hash",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1740068400000,
+      "tag": "0003_seed_user_alexey",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1740072000000,
+      "tag": "0004_alexey_role_admin",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1740075600000,
+      "tag": "0005_project_dashboard_sort",
+      "breakpoints": true
+    }
+  ]
+}
