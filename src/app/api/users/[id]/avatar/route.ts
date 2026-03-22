@@ -2,7 +2,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 import sharp from "sharp";
 import { eq } from "drizzle-orm";
-import { requireAdmin } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { getBucket, getS3Client, publicObjectUrl } from "@/lib/s3";
@@ -12,8 +12,11 @@ type Ctx = { params: Promise<{ id: string }> };
 const MAX_BYTES = 4 * 1024 * 1024;
 
 export async function POST(req: Request, ctx: Ctx) {
-  await requireAdmin();
+  const me = await requireUser();
   const { id } = await ctx.params;
+  if (me.id !== id && me.role !== "admin") {
+    return Response.json({ error: "Нет доступа" }, { status: 403 });
+  }
   const [u] = await db
     .select({ id: users.id, avatarKey: users.avatarKey })
     .from(users)

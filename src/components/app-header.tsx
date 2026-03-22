@@ -3,11 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTheme } from "@/components/theme-provider";
 import { roleLabel } from "@/lib/role-labels";
 
 import ansaraLogo from "@/icons/ANSARA.svg";
+import exitIcon from "@/icons/exit.svg";
+import exitNavIcon from "@/icons/exit-nav.svg";
 import folderIcon from "@/icons/folder.svg";
 import folderNavIcon from "@/icons/folder-nav.svg";
 import moonIcon from "@/icons/moon.svg";
@@ -16,6 +18,8 @@ import settingsIcon from "@/icons/settings.svg";
 import settingsNavIcon from "@/icons/settings-nav.svg";
 import sunIcon from "@/icons/sun.svg";
 import sunNavIcon from "@/icons/sun-nav.svg";
+import userIcon from "@/icons/user.svg";
+import userNavIcon from "@/icons/user-nav.svg";
 
 export type HeaderUser = {
   id: string;
@@ -30,6 +34,7 @@ type Props = {
   statusFilter: "active" | "paused" | "completed";
   onStatusFilter: (s: "active" | "paused" | "completed") => void;
   onOpenSettings?: () => void;
+  onOpenMyProfile: () => void;
   onAddProject: () => void;
 };
 
@@ -78,15 +83,58 @@ const STATUS_TABS = [
   ["completed", "Завершённые"],
 ] as const;
 
+function MenuRow({
+  iconDefault,
+  iconHover,
+  label,
+  onClick,
+}: {
+  iconDefault: string;
+  iconHover: string;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-[#666666] transition-colors hover:text-[#5A86EE]"
+    >
+      <span className="relative h-[18px] w-[18px] shrink-0">
+        <Image
+          src={iconDefault}
+          alt=""
+          width={18}
+          height={18}
+          unoptimized
+          className="transition-opacity duration-150 group-hover:opacity-0"
+        />
+        <Image
+          src={iconHover}
+          alt=""
+          width={18}
+          height={18}
+          unoptimized
+          className="absolute left-0 top-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+        />
+      </span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
 export function AppHeader({
   user,
   statusFilter,
   onStatusFilter,
   onOpenSettings,
+  onOpenMyProfile,
   onAddProject,
 }: Props) {
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuWrapRef = useRef<HTMLDivElement>(null);
 
   const navRef = useRef<HTMLElement | null>(null);
   const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -102,6 +150,16 @@ export function AppHeader({
     router.push("/login");
     router.refresh();
   }
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDoc(e: MouseEvent) {
+      const el = menuWrapRef.current;
+      if (el && !el.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [menuOpen]);
 
   useLayoutEffect(() => {
     const nav = navRef.current;
@@ -138,16 +196,16 @@ export function AppHeader({
 
   return (
     <header
-      className="sticky top-0 z-40 flex h-14 min-w-0 items-center gap-6 px-4 text-[var(--header-fg)]"
+      className="sticky top-0 z-40 flex h-14 min-w-0 items-center gap-6 px-[40px] text-[var(--header-fg)]"
       style={{ backgroundColor: "#000000" }}
     >
-      <Link href="/" className="relative block h-8 w-[120px] shrink-0">
+      <Link href="/" className="relative block h-7 w-[96px] shrink-0">
         <Image
           src={ansaraLogo}
           alt="ANSARA"
           fill
           className="object-contain object-left"
-          sizes="120px"
+          sizes="96px"
           priority
           unoptimized
         />
@@ -179,7 +237,7 @@ export function AppHeader({
               className={`whitespace-nowrap rounded-md px-4 py-2 text-center transition-colors duration-200 ${
                 statusFilter === key
                   ? "text-white"
-                  : "text-white/80 hover:text-white"
+                  : "text-[#666666] hover:text-white"
               }`}
             >
               {label}
@@ -212,33 +270,21 @@ export function AppHeader({
           onClick={toggleTheme}
         />
 
-        <button
-          type="button"
-          onClick={() => void logout()}
-          aria-label="Выйти"
-          title="Выйти"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--header-fg)] hover:opacity-80"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          >
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
-          </svg>
-        </button>
-
-        <div className="ml-2 flex items-center gap-2 pl-2">
+        <div ref={menuWrapRef} className="relative ml-2 flex items-center gap-2 pl-2">
           <div className="text-right text-sm leading-tight">
             <div>
-              {user.firstName} {user.lastName}
+              {user.firstName}
+              {user.lastName?.trim() ? ` ${user.lastName.trim()}` : ""}
             </div>
-            <div className="text-xs opacity-80">{roleLabel(user.role)}</div>
+            <div className="text-xs text-[#666666]">{roleLabel(user.role)}</div>
           </div>
-          <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-neutral-700">
+          <button
+            type="button"
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-neutral-700 ring-offset-2 ring-offset-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+          >
             {user.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -247,12 +293,39 @@ export function AppHeader({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs">
+              <div className="flex h-full w-full items-center justify-center text-xs text-white">
                 {user.firstName[0]}
-                {user.lastName[0]}
+                {user.lastName?.trim()?.[0] ?? ""}
               </div>
             )}
-          </div>
+          </button>
+
+          {menuOpen ? (
+            <div
+              className="absolute right-0 top-full z-50 mt-1 min-w-[200px] overflow-hidden rounded-lg py-1 shadow-lg"
+              style={{ backgroundColor: "#000000" }}
+              role="menu"
+            >
+              <MenuRow
+                iconDefault={userIcon}
+                iconHover={userNavIcon}
+                label="Мой профиль"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onOpenMyProfile();
+                }}
+              />
+              <MenuRow
+                iconDefault={exitIcon}
+                iconHover={exitNavIcon}
+                label="Выйти"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void logout();
+                }}
+              />
+            </div>
+          ) : null}
         </div>
       </div>
     </header>

@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db, ensureBacklogListColumns } from "@/lib/db";
 import { backlogLists, backlogTasks, projects } from "@/lib/db/schema";
 
 const putSchema = z.object({
@@ -9,6 +9,8 @@ const putSchema = z.object({
     z.object({
       title: z.string().min(1),
       assigneeUserId: z.string().uuid().optional().nullable(),
+      listStatus: z.enum(["not_started", "in_progress", "completed", "rejected"]),
+      formedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       tasks: z.array(
         z.object({
           description: z.string().min(1),
@@ -31,6 +33,8 @@ export async function PUT(req: Request, ctx: Ctx) {
     .limit(1);
   if (!p) return Response.json({ error: "Не найдено" }, { status: 404 });
 
+  await ensureBacklogListColumns();
+
   const json = await req.json().catch(() => null);
   const parsed = putSchema.safeParse(json);
   if (!parsed.success) {
@@ -48,6 +52,8 @@ export async function PUT(req: Request, ctx: Ctx) {
           projectId: id,
           title: list.title,
           assigneeUserId: list.assigneeUserId ?? null,
+          listStatus: list.listStatus,
+          formedAt: list.formedAt,
           sortOrder: i,
         })
         .returning();

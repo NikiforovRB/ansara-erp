@@ -16,25 +16,39 @@ import { tryPublicObjectUrl } from "@/lib/s3";
 const statusSchema = z.enum(["active", "paused", "completed"]);
 
 export async function GET(req: Request) {
-  await requireUser();
-  const { searchParams } = new URL(req.url);
-  const status = statusSchema.safeParse(searchParams.get("status") ?? "active");
-  if (!status.success) {
-    return Response.json({ error: "status" }, { status: 400 });
+  try {
+    await requireUser();
+    const { searchParams } = new URL(req.url);
+    const status = statusSchema.safeParse(searchParams.get("status") ?? "active");
+    if (!status.success) {
+      return Response.json({ error: "status" }, { status: 400 });
+    }
+    const rows = await listProjectsWithMeta(status.data as ProjectStatusFilter);
+    const projects = rows.map((r) => {
+      const bp = r.backlogPreview;
+      if (!bp) return r;
+      if ("variant" in bp && bp.variant === "all_completed") return r;
+      if ("variant" in bp && bp.variant === "active") {
+        return {
+          ...r,
+          backlogPreview: {
+            ...bp,
+            assigneeAvatarUrl: tryPublicObjectUrl(bp.assignee?.avatarKey ?? null),
+          },
+        };
+      }
+      return r;
+    });
+    return Response.json({ projects });
+  } catch (e) {
+    if (e instanceof Response) throw e;
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("[GET /api/projects]", e);
+    return Response.json(
+      { error: "Не удалось загрузить проекты", detail: message },
+      { status: 500 },
+    );
   }
-  const rows = await listProjectsWithMeta(status.data as ProjectStatusFilter);
-  const projects = rows.map((r) => ({
-    ...r,
-    backlogPreview: r.backlogPreview
-      ? {
-          ...r.backlogPreview,
-          assigneeAvatarUrl: tryPublicObjectUrl(
-            r.backlogPreview.assignee?.avatarKey ?? null,
-          ),
-        }
-      : null,
-  }));
-  return Response.json({ projects });
 }
 
 const createSchema = z.object({

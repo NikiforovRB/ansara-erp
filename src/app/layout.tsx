@@ -1,19 +1,20 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const gilroy = localFont({
-  src: "./fonts/Gilroy-Regular.woff2",
+  src: "./fonts/Gilroy-Medium.ttf",
   variable: "--font-gilroy",
   display: "swap",
-  weight: "400",
+  weight: "500",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const gilroyBold = localFont({
+  src: "./fonts/Gilroy-Bold.ttf",
+  variable: "--font-gilroy-bold",
+  display: "swap",
+  weight: "700",
 });
 
 export const metadata: Metadata = {
@@ -27,10 +28,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" suppressHydrationWarning>
-      <body
-        className={`${gilroy.variable} ${geistMono.variable} antialiased`}
-      >
+    <html
+      lang="ru"
+      suppressHydrationWarning
+      className={`${gilroy.variable} ${gilroyBold.variable} ${gilroy.className}`}
+    >
+      <body className="antialiased">
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

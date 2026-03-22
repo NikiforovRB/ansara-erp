@@ -49,16 +49,19 @@ export function deadlineDaysLabel(
   const diff = differenceInCalendarDays(endDay, today);
   if (diff > 0) {
     const n = diff;
+    const mod10 = n % 10;
+    const mod100 = n % 100;
     const word =
-      n % 10 === 1 && n % 100 !== 11
+      mod10 === 1 && mod100 !== 11
         ? "день"
-        : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)
+        : mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)
           ? "дня"
           : "дней";
-    return { text: `Осталось ${n} ${word}`, tone };
+    const verb = mod10 === 1 && mod100 !== 11 ? "Остался" : "Осталось";
+    return { text: `${verb} ${n} ${word}`, tone };
   }
   if (diff === 0) {
-    return { text: "Осталось 0 дней", tone: "urgent" };
+    return { text: "Сегодня последний день", tone: "urgent" };
   }
   const over = -diff;
   const word =

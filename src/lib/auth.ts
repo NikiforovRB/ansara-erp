@@ -21,10 +21,15 @@ export async function getCurrentUser() {
   return user ?? null;
 }
 
+const jsonHeaders = { "Content-Type": "application/json" };
+
 export async function requireUser() {
   const user = await getCurrentUser();
   if (!user) {
-    throw new Response("Unauthorized", { status: 401 });
+    throw new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: jsonHeaders,
+    });
   }
   return user;
 }
@@ -32,7 +37,10 @@ export async function requireUser() {
 export async function requireAdmin() {
   const user = await requireUser();
   if (user.role !== "admin") {
-    throw new Response("Forbidden", { status: 403 });
+    throw new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: jsonHeaders,
+    });
   }
   return user;
 }

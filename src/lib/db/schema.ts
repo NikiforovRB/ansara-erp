@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   integer,
@@ -34,6 +35,13 @@ export const paymentTextColorEnum = pgEnum("payment_text_color", [
   "gray",
 ]);
 
+export const backlogListStatusEnum = pgEnum("backlog_list_status", [
+  "not_started",
+  "in_progress",
+  "completed",
+  "rejected",
+]);
+
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   login: varchar("login", { length: 128 }).notNull().unique(),
@@ -60,6 +68,8 @@ export const projects = pgTable(
     status: projectStatusEnum("status").notNull().default("active"),
     slug: varchar("slug", { length: 6 }).notNull(),
     lkTitle: varchar("lk_title", { length: 512 }).notNull().default("Личный кабинет"),
+    lkShowBacklog: boolean("lk_show_backlog").notNull().default(false),
+    lkStagesComment: text("lk_stages_comment"),
     remainingAmountRubles: integer("remaining_amount_rubles").notNull().default(0),
     dashboardSortOrder: integer("dashboard_sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -88,6 +98,7 @@ export const timelineEntries = pgTable("timeline_entries", {
     .references(() => projects.id, { onDelete: "cascade" }),
   entryDate: date("entry_date").notNull(),
   title: text("title").notNull(),
+  description: text("description").notNull().default(""),
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
@@ -158,6 +169,7 @@ export const documents = pgTable("documents", {
     .references(() => projects.id, { onDelete: "cascade" }),
   docDate: date("doc_date").notNull(),
   url: text("url").notNull(),
+  linkTitle: varchar("link_title", { length: 512 }),
   comment: text("comment"),
 });
 
@@ -170,6 +182,8 @@ export const backlogLists = pgTable("backlog_lists", {
   assigneeUserId: uuid("assignee_user_id").references(() => users.id, {
     onDelete: "set null",
   }),
+  listStatus: backlogListStatusEnum("list_status").notNull().default("not_started"),
+  formedAt: date("formed_at").notNull().default(sql`CURRENT_DATE`),
   sortOrder: integer("sort_order").notNull().default(0),
 });
 

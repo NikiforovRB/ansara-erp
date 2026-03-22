@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import { tryPublicObjectUrl } from "@/lib/s3";
 
 export async function GET() {
   await requireUser();
@@ -17,14 +18,19 @@ export async function GET() {
     })
     .from(users)
     .orderBy(users.lastName, users.firstName);
-  return Response.json({ users: rows });
+  return Response.json({
+    users: rows.map((u) => ({
+      ...u,
+      avatarUrl: tryPublicObjectUrl(u.avatarKey),
+    })),
+  });
 }
 
 const createSchema = z.object({
   login: z.string().min(2),
   password: z.string().min(6),
   firstName: z.string().min(1),
-  lastName: z.string().min(1),
+  lastName: z.string().max(128).optional().default(""),
   role: z.enum(["admin", "employee"]),
 });
 

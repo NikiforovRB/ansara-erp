@@ -1,5 +1,11 @@
 import { asc, desc, eq, inArray, sql } from "drizzle-orm";
-import { db } from "@/lib/db";
+import {
+  db,
+  ensureBacklogListColumns,
+  ensureDocumentsLinkTitleColumn,
+  ensureTimelineDescriptionAndStagesComment,
+} from "@/lib/db";
+import { tryPublicObjectUrl } from "@/lib/s3";
 import {
   backlogLists,
   backlogTasks,
@@ -19,6 +25,9 @@ import {
 export type ProjectStatusFilter = "active" | "paused" | "completed";
 
 export async function listProjectsWithMeta(status: ProjectStatusFilter) {
+  await ensureBacklogListColumns();
+  await ensureTimelineDescriptionAndStagesComment();
+
   const rows = await db
     .select()
     .from(projects)
@@ -83,22 +92,54 @@ export async function listProjectsWithMeta(status: ProjectStatusFilter) {
 
   return rows.map((p) => {
     const lists = listsByProject.get(p.id) ?? [];
+    if (lists.length === 0) {
+      return {
+        project: p,
+        deadline: deadlineByProject.get(p.id) ?? null,
+        paidRubles: paidByProject.get(p.id) ?? 0,
+        paymentBlocks: blocksByProject.get(p.id) ?? [],
+        backlogPreview: null,
+      };
+    }
+    const allCompleted = lists.every((r) => r.list.listStatus === "completed");
+    if (allCompleted) {
+      return {
+        project: p,
+        deadline: deadlineByProject.get(p.id) ?? null,
+        paidRubles: paidByProject.get(p.id) ?? 0,
+        paymentBlocks: blocksByProject.get(p.id) ?? [],
+        backlogPreview: { variant: "all_completed" as const },
+      };
+    }
     const last = lists[lists.length - 1];
     return {
       project: p,
       deadline: deadlineByProject.get(p.id) ?? null,
       paidRubles: paidByProject.get(p.id) ?? 0,
       paymentBlocks: blocksByProject.get(p.id) ?? [],
-      backlogPreview: last
-        ? {
-            assignee: last.assignee,
-          }
-        : null,
+      backlogPreview: {
+        variant: "active" as const,
+        assignee: last.assignee,
+        lastListTitle: last.list.title,
+        lastListStatus: last.list.listStatus,
+        lastFormedAt: last.list.formedAt
+          ? typeof last.list.formedAt === "string"
+            ? last.list.formedAt.slice(0, 10)
+            : String(last.list.formedAt).slice(0, 10)
+          : null,
+        assigneeAvatarUrl: last.assignee?.avatarKey
+          ? tryPublicObjectUrl(last.assignee.avatarKey)
+          : null,
+      },
     };
   });
 }
 
 export async function getProjectFull(projectId: string) {
+  await ensureDocumentsLinkTitleColumn();
+  await ensureBacklogListColumns();
+  await ensureTimelineDescriptionAndStagesComment();
+
   const [project] = await db
     .select()
     .from(projects)
@@ -116,7 +157,7 @@ export async function getProjectFull(projectId: string) {
     .select()
     .from(timelineEntries)
     .where(eq(timelineEntries.projectId, projectId))
-    .orderBy(asc(timelineEntries.sortOrder), asc(timelineEntries.entryDate));
+    .orderBy(desc(timelineEntries.entryDate), asc(timelineEntries.sortOrder));
 
   const entryIds = entries.map((e) => e.id);
   let images: (typeof timelineImages.$inferSelect)[] = [];
@@ -162,11 +203,27 @@ export async function getProjectFull(projectId: string) {
     .where(eq(paymentTextBlocks.projectId, projectId))
     .orderBy(asc(paymentTextBlocks.sortOrder));
 
-  const docs = await db
-    .select()
-    .from(documents)
-    .where(eq(documents.projectId, projectId))
-    .orderBy(desc(documents.docDate));
+  let docs: (typeof documents.$inferSelect)[];
+  try {
+    docs = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.projectId, projectId))
+      .orderBy(desc(documents.docDate));
+  } catch {
+    const rows = await db
+      .select({
+        id: documents.id,
+        projectId: documents.projectId,
+        docDate: documents.docDate,
+        url: documents.url,
+        comment: documents.comment,
+      })
+      .from(documents)
+      .where(eq(documents.projectId, projectId))
+      .orderBy(desc(documents.docDate));
+    docs = rows.map((r) => ({ ...r, linkTitle: null as string | null }));
+  }
 
   const blists = await db
     .select({

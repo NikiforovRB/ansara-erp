@@ -52,9 +52,13 @@ export async function GET(_req: Request, ctx: Ctx) {
   }
   const { pinView, ...projectSafe } = full.project;
   void pinView;
+  const backlog =
+    full.project.lkShowBacklog === true
+      ? full.backlog
+      : { lists: [] as typeof full.backlog.lists, tasks: [] as typeof full.backlog.tasks };
   return Response.json({
     access: "guest",
     slug: project.slug,
-    full: { ...full, project: projectSafe },
+    full: { ...full, project: projectSafe, backlog },
   });
 }

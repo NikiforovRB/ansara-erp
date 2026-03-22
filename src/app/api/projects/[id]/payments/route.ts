@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db, ensureDocumentsLinkTitleColumn } from "@/lib/db";
 import {
   documents,
   paymentLedger,
@@ -28,6 +28,7 @@ const putSchema = z.object({
     z.object({
       docDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       url: z.string().min(1),
+      linkTitle: z.string().optional().nullable(),
       comment: z.string().optional().nullable(),
     }),
   ),
@@ -52,6 +53,8 @@ export async function PUT(req: Request, ctx: Ctx) {
   }
   const { remainingAmountRubles, textBlocks, ledger, documents: docs } =
     parsed.data;
+
+  await ensureDocumentsLinkTitleColumn();
 
   await db.transaction(async (tx) => {
     await tx
@@ -90,6 +93,7 @@ export async function PUT(req: Request, ctx: Ctx) {
           projectId: id,
           docDate: row.docDate,
           url: row.url,
+          linkTitle: row.linkTitle?.trim() || null,
           comment: row.comment ?? null,
         })),
       );

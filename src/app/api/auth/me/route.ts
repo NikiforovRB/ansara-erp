@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/auth";
+import { tryPublicObjectUrl } from "@/lib/s3";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -13,6 +14,7 @@ export async function GET() {
       lastName: user.lastName,
       role: user.role,
       avatarKey: user.avatarKey,
+      avatarUrl: tryPublicObjectUrl(user.avatarKey),
     },
   });
 }

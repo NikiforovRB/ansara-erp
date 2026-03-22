@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { requireUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { db, ensureTimelineDescriptionAndStagesComment } from "@/lib/db";
 import {
   projectDeadlines,
   projects,
@@ -14,15 +14,18 @@ import {
 
 const putSchema = z.object({
   lkTitle: z.string().min(1),
+  lkShowBacklog: z.boolean(),
   deadline: z.object({
     startAt: z.string().datetime().optional().nullable(),
     endAt: z.string().datetime().optional().nullable(),
     comment: z.string().optional().nullable(),
   }),
+  stagesComment: z.string().optional().nullable(),
   timeline: z.array(
     z.object({
       entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       title: z.string().min(1),
+      description: z.string().optional().default(""),
       images: z.array(
         z.object({
           originalKey: z.string().min(1),
@@ -45,10 +48,13 @@ const putSchema = z.object({
           description: z.string().min(1),
           done: z.boolean(),
           completedAt: z
-            .string()
-            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .union([
+              z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+              z.literal(""),
+              z.null(),
+            ])
             .optional()
-            .nullable(),
+            .transform((v) => (v === "" || v === undefined ? null : v)),
         }),
       ),
     }),
@@ -58,7 +64,10 @@ const putSchema = z.object({
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PUT(req: Request, ctx: Ctx) {
-  await requireUser();
+  const user = await getCurrentUser();
+  if (!user) {
+    return Response.json({ error: "Не авторизован" }, { status: 401 });
+  }
   const { id } = await ctx.params;
   const [p] = await db
     .select({ id: projects.id })
@@ -70,96 +79,152 @@ export async function PUT(req: Request, ctx: Ctx) {
   const json = await req.json().catch(() => null);
   const parsed = putSchema.safeParse(json);
   if (!parsed.success) {
-    return Response.json({ error: "Неверные данные" }, { status: 400 });
+    return Response.json(
+      { error: "Неверные данные", issues: parsed.error.issues },
+      { status: 400 },
+    );
   }
 
-  const { lkTitle, deadline, timeline, stages: stagePayload } = parsed.data;
+  const {
+    lkTitle,
+    lkShowBacklog,
+    deadline,
+    timeline,
+    stages: stagePayload,
+    stagesComment,
+  } = parsed.data;
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(projects)
-      .set({ lkTitle, updatedAt: new Date() })
-      .where(eq(projects.id, id));
+  try {
+    await ensureTimelineDescriptionAndStagesComment();
+    await db.transaction(async (tx) => {
+      await tx
+        .update(projects)
+        .set({
+          lkTitle,
+          lkShowBacklog,
+          lkStagesComment: stagesComment ?? null,
+          updatedAt: new Date(),
+        })
+        .where(eq(projects.id, id));
 
-    await tx
-      .insert(projectDeadlines)
-      .values({
-        projectId: id,
-        startAt: deadline.startAt ? new Date(deadline.startAt) : null,
-        endAt: deadline.endAt ? new Date(deadline.endAt) : null,
-        comment: deadline.comment ?? null,
-      })
-      .onConflictDoUpdate({
-        target: projectDeadlines.projectId,
-        set: {
+      await tx
+        .insert(projectDeadlines)
+        .values({
+          projectId: id,
           startAt: deadline.startAt ? new Date(deadline.startAt) : null,
           endAt: deadline.endAt ? new Date(deadline.endAt) : null,
           comment: deadline.comment ?? null,
-        },
-      });
+        })
+        .onConflictDoUpdate({
+          target: projectDeadlines.projectId,
+          set: {
+            startAt: deadline.startAt ? new Date(deadline.startAt) : null,
+            endAt: deadline.endAt ? new Date(deadline.endAt) : null,
+            comment: deadline.comment ?? null,
+          },
+        });
 
-    await tx.delete(timelineEntries).where(eq(timelineEntries.projectId, id));
+      await tx.delete(timelineEntries).where(eq(timelineEntries.projectId, id));
 
-    for (let i = 0; i < timeline.length; i++) {
-      const row = timeline[i];
-      const [entry] = await tx
-        .insert(timelineEntries)
-        .values({
+      for (let i = 0; i < timeline.length; i++) {
+        const row = timeline[i];
+        await tx.insert(timelineEntries).values({
           projectId: id,
           entryDate: row.entryDate,
           title: row.title,
+          description: row.description ?? "",
           sortOrder: i,
-        })
-        .returning();
+        });
 
-      if (row.images.length) {
-        await tx.insert(timelineImages).values(
-          row.images.map((im, j) => ({
-            entryId: entry.id,
-            originalKey: im.originalKey,
-            webpKey: im.webpKey,
-            sortOrder: j,
-          })),
-        );
+        const [entry] = await tx
+          .select({ id: timelineEntries.id })
+          .from(timelineEntries)
+          .where(
+            and(
+              eq(timelineEntries.projectId, id),
+              eq(timelineEntries.sortOrder, i),
+            ),
+          )
+          .limit(1);
+
+        if ((row.images.length || row.links.length) && !entry) {
+          throw new Error(
+            "Не удалось получить id записи таймлайна после сохранения",
+          );
+        }
+
+        if (row.images.length && entry) {
+          await tx.insert(timelineImages).values(
+            row.images.map((im, j) => ({
+              entryId: entry.id,
+              originalKey: im.originalKey,
+              webpKey: im.webpKey,
+              sortOrder: j,
+            })),
+          );
+        }
+        if (row.links.length && entry) {
+          await tx.insert(timelineLinks).values(
+            row.links.map((ln, j) => ({
+              entryId: entry.id,
+              url: ln.url,
+              linkTitle: ln.title,
+              sortOrder: j,
+            })),
+          );
+        }
       }
-      if (row.links.length) {
-        await tx.insert(timelineLinks).values(
-          row.links.map((ln, j) => ({
-            entryId: entry.id,
-            url: ln.url,
-            linkTitle: ln.title,
-            sortOrder: j,
-          })),
-        );
+
+      const existingStageIds = await tx
+        .select({ id: stages.id })
+        .from(stages)
+        .where(eq(stages.projectId, id));
+      const stageIdList = existingStageIds.map((r) => r.id);
+      if (stageIdList.length) {
+        await tx
+          .delete(stageTasks)
+          .where(inArray(stageTasks.stageId, stageIdList));
       }
-    }
+      await tx.delete(stages).where(eq(stages.projectId, id));
 
-    await tx.delete(stages).where(eq(stages.projectId, id));
-
-    for (let si = 0; si < stagePayload.length; si++) {
-      const st = stagePayload[si];
-      const [stageRow] = await tx
-        .insert(stages)
-        .values({
+      for (let si = 0; si < stagePayload.length; si++) {
+        const st = stagePayload[si];
+        await tx.insert(stages).values({
           projectId: id,
           title: st.title,
           sortOrder: si,
-        })
-        .returning();
+        });
 
-      if (st.tasks.length) {
-        await tx.insert(stageTasks).values(
-          st.tasks.map((t, ti) => ({
-            stageId: stageRow.id,
-            description: t.description,
-            done: t.done,
-            completedAt: t.completedAt ?? null,
-            sortOrder: ti,
-          })),
-        );
+        const [stageRow] = await tx
+          .select({ id: stages.id })
+          .from(stages)
+          .where(
+            and(eq(stages.projectId, id), eq(stages.sortOrder, si)),
+          )
+          .limit(1);
+
+        if (st.tasks.length && !stageRow) {
+          throw new Error("Не удалось получить id этапа после сохранения");
+        }
+
+        if (st.tasks.length && stageRow) {
+          await tx.insert(stageTasks).values(
+            st.tasks.map((t, ti) => ({
+              stageId: stageRow.id,
+              description: t.description,
+              done: t.done,
+              completedAt: t.completedAt ?? null,
+              sortOrder: ti,
+            })),
+          );
+        }
       }
-    }
-  });
+    });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("[PUT /api/projects/[id]/lk]", e);
+    return Response.json({ error: "Ошибка сохранения ЛК", detail: message }, { status: 500 });
+  }
 
   return Response.json({ ok: true });
 }
