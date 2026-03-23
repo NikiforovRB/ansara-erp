@@ -18,8 +18,10 @@ const gilroyBold = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "ANSARA — клиенты",
+  title: "ANSARA - Личный кабинет",
   description: "Управление проектами и личным кабинетом заказчика",
+  manifest: "/manifest.webmanifest",
+  themeColor: "#000000",
 };
 
 export default function RootLayout({

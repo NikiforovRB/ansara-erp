@@ -569,8 +569,11 @@ export function CustomerPanel({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { theme } = useTheme();
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [fetching, setFetching] = useState(false);
 
   useEffect(() => {
@@ -644,20 +647,64 @@ export function CustomerPanel({
     }
   }
 
+  async function deleteProject() {
+    if (!p) return;
+    setDeleting(true);
+    try {
+      await fetchJson(`/api/projects/${projectId}`, { method: "DELETE" });
+      setConfirmDeleteOpen(false);
+      onSaved();
+      onClose();
+    } catch {
+      alert("Ошибка удаления");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
-    <RightPanel
-      open={open}
-      title="Заказчик"
-      onClose={onClose}
-      footer={btnFooter(onClose, save, busy || !p || pin.length !== 4)}
-      footerStart={p ? <ModalFooterStatusTabs value={status} onChange={setStatus} /> : null}
-      contentLoading={fetching}
-      saving={busy}
-    >
-      {!p ? (
-        <p className="text-sm text-[var(--muted)]">Загрузка…</p>
-      ) : (
-        <>
+    <>
+      <RightPanel
+        open={open}
+        title="Заказчик"
+        onClose={onClose}
+        footer={
+          <>
+            <button
+              type="button"
+              className="rounded px-4 py-2 text-sm text-red-600/90 opacity-90 transition-opacity hover:opacity-100"
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={!p || busy || deleting}
+            >
+              Удалить проект
+            </button>
+            <button
+              type="button"
+              className="rounded px-4 py-2 text-sm opacity-80 hover:opacity-100"
+              onClick={onClose}
+              disabled={busy || deleting}
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-40 bg-[#0f68e4] hover:bg-[#2677e8]"
+              onClick={() => void save()}
+              disabled={busy || deleting || !p || pin.length !== 4}
+            >
+              <Image src={saveWhite} alt="" width={18} height={18} unoptimized />
+              Сохранить
+            </button>
+          </>
+        }
+        footerStart={p ? <ModalFooterStatusTabs value={status} onChange={setStatus} /> : null}
+        contentLoading={fetching}
+        saving={busy || deleting}
+      >
+        {!p ? (
+          <p className="text-sm text-[var(--muted)]">Загрузка…</p>
+        ) : (
+          <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex min-w-0 flex-col gap-0.5">
               <SettingsLbl>Имя заказчика</SettingsLbl>
@@ -713,9 +760,44 @@ export function CustomerPanel({
               minHeight="6rem"
             />
           </div>
-        </>
-      )}
-    </RightPanel>
+          </>
+        )}
+      </RightPanel>
+      {confirmDeleteOpen ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="w-full max-w-md rounded-xl border p-5 shadow-xl"
+            style={{
+              backgroundColor: theme === "dark" ? "#1a1a1a" : "#ffffff",
+              borderColor: theme === "dark" ? "#474747" : "#dadada",
+            }}
+          >
+            <h4 className="text-base font-medium text-[var(--foreground)]">Удалить проект?</h4>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              Проект будет удалён полностью вместе со всеми данными, включая изображения.
+            </p>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="rounded px-4 py-2 text-sm opacity-80 hover:opacity-100"
+                onClick={() => setConfirmDeleteOpen(false)}
+                disabled={deleting}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                onClick={() => void deleteProject()}
+                disabled={deleting}
+              >
+                {deleting ? "Удаление…" : "Удалить"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 

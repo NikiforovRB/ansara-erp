@@ -2,9 +2,9 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { projects } from "@/lib/db/schema";
+import { projects, timelineEntries, timelineImages } from "@/lib/db/schema";
 import { getProjectFull } from "@/lib/project-queries";
-import { tryPublicObjectUrl } from "@/lib/s3";
+import { deleteObjectKey, tryPublicObjectUrl } from "@/lib/s3";
 
 const patchSchema = z.object({
   customerName: z.string().min(1).optional(),
@@ -75,7 +75,19 @@ export async function PATCH(req: Request, ctx: Ctx) {
 export async function DELETE(_req: Request, ctx: Ctx) {
   await requireUser();
   const { id } = await ctx.params;
+  const imageRows = await db
+    .select({
+      originalKey: timelineImages.originalKey,
+      webpKey: timelineImages.webpKey,
+    })
+    .from(timelineImages)
+    .innerJoin(timelineEntries, eq(timelineImages.entryId, timelineEntries.id))
+    .where(eq(timelineEntries.projectId, id));
   const deleted = await db.delete(projects).where(eq(projects.id, id)).returning();
   if (!deleted.length) return Response.json({ error: "Не найдено" }, { status: 404 });
+  const keys = Array.from(
+    new Set(imageRows.flatMap((r) => [r.originalKey, r.webpKey]).filter(Boolean)),
+  );
+  await Promise.allSettled(keys.map((key) => deleteObjectKey(key)));
   return Response.json({ ok: true });
 }
