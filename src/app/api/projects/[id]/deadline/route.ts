@@ -8,6 +8,7 @@ const putSchema = z.object({
   startAt: z.string().datetime().optional().nullable(),
   endAt: z.string().datetime().optional().nullable(),
   comment: z.string().optional().nullable(),
+  lkShowDeadline: z.boolean().optional(),
 });
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -27,7 +28,7 @@ export async function PUT(req: Request, ctx: Ctx) {
   if (!parsed.success) {
     return Response.json({ error: "Неверные данные" }, { status: 400 });
   }
-  const { startAt, endAt, comment } = parsed.data;
+  const { startAt, endAt, comment, lkShowDeadline } = parsed.data;
 
   await db
     .insert(projectDeadlines)
@@ -48,7 +49,10 @@ export async function PUT(req: Request, ctx: Ctx) {
 
   await db
     .update(projects)
-    .set({ updatedAt: new Date() })
+    .set({
+      updatedAt: new Date(),
+      ...(lkShowDeadline !== undefined ? { lkShowDeadline } : {}),
+    })
     .where(eq(projects.id, id));
 
   const [row] = await db

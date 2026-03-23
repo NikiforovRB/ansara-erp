@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { TableSkeleton } from "@/components/loading-skeleton";
 import { xhrGetJsonWithProgress } from "@/lib/xhr-get-json";
 import { AppHeader as Header, type HeaderUser } from "@/components/app-header";
 import {
@@ -26,7 +27,11 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
   const [statusFilter, setStatusFilter] = useState<Status>("active");
   const [rows, setRows] = useState<ProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadProgress, setLoadProgress] = useState<number | null>(null);
+  const [statusCounts, setStatusCounts] = useState<Record<Status, number>>({
+    active: 0,
+    paused: 0,
+    completed: 0,
+  });
   const [panel, setPanel] = useState<
     | null
     | { kind: "add" }
@@ -41,13 +46,12 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    setLoadProgress(0);
     try {
       const raw = await xhrGetJsonWithProgress(
         `/api/projects?status=${statusFilter}`,
-        (p) => setLoadProgress(p),
+        () => {},
       );
-      let data: { projects?: ProjectRow[] } = {};
+      let data: { projects?: ProjectRow[]; counts?: Partial<Record<Status, number>> } = {};
       if (raw.trim()) {
         try {
           data = JSON.parse(raw) as { projects?: ProjectRow[] };
@@ -56,6 +60,12 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
         }
       }
       setRows((data.projects ?? []) as ProjectRow[]);
+      const counts = data.counts ?? {};
+      setStatusCounts({
+        active: counts.active ?? 0,
+        paused: counts.paused ?? 0,
+        completed: counts.completed ?? 0,
+      });
     } catch (e) {
       const err = e as Error & { status?: number };
       if (err.status === 401) {
@@ -65,7 +75,6 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
       setRows([]);
     } finally {
       setLoading(false);
-      setLoadProgress(null);
     }
   }, [statusFilter, router]);
 
@@ -87,6 +96,7 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
       <Header
         user={headerUser}
         statusFilter={statusFilter}
+        statusCounts={statusCounts}
         onStatusFilter={(s) => setStatusFilter(s)}
         onOpenSettings={
           user.role === "admin" ? () => setPanel({ kind: "settings" }) : undefined
@@ -97,7 +107,7 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
 
       <div className="overflow-x-auto px-[40px] pb-8 pt-[26px]">
         {loading ? (
-          <p className="px-2 text-sm text-[var(--muted)]">Загрузка…</p>
+          <TableSkeleton />
         ) : (
           <ProjectsSortableTable
             rows={rows}
@@ -107,30 +117,6 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
           />
         )}
       </div>
-
-      {loading ? (
-        <div
-          className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--table-divider)] bg-[var(--background)] px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]"
-          role="status"
-          aria-live="polite"
-        >
-          <div className="mx-auto max-w-4xl">
-            <div className="mb-1 text-xs text-[var(--muted)]">
-              {loadProgress == null ? "Загрузка…" : `${loadProgress}%`}
-            </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--foreground)]/10">
-              {loadProgress == null ? (
-                <div className="h-full w-1/3 animate-pulse rounded-full bg-[#0f68e4]" />
-              ) : (
-                <div
-                  className="h-full rounded-full bg-[#0f68e4] transition-[width] duration-150"
-                  style={{ width: `${loadProgress}%` }}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       <AddProjectPanel
         open={panel?.kind === "add"}

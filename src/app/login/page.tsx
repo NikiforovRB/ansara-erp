@@ -2,8 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Image from "next/image";
+import { useTheme } from "@/components/theme-provider";
+import ansaraBlack from "@/icons/ANSARA-black.svg";
+import ansaraLogo from "@/icons/ANSARA.svg";
 
 export default function LoginPage() {
+  const { theme } = useTheme();
   const router = useRouter();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
@@ -37,7 +42,16 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <h1 className="text-center text-xl font-semibold tracking-tight">ANSARA</h1>
+        <div className="relative mx-auto h-8 w-[140px]">
+          <Image
+            src={theme === "dark" ? ansaraLogo : ansaraBlack}
+            alt="ANSARA"
+            fill
+            className="object-contain"
+            unoptimized
+            priority
+          />
+        </div>
         <p className="mt-2 text-center text-sm text-[var(--muted)]">Вход для сотрудников</p>
         <form onSubmit={(e) => void submit(e)} className="mt-8 space-y-4">
           <div>
@@ -63,8 +77,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded py-2 text-sm font-medium text-white disabled:opacity-40"
-            style={{ backgroundColor: "#000" }}
+            className="w-full rounded bg-[#0f68e4] py-2 text-sm font-medium text-white transition-colors hover:bg-[#2c7bea] disabled:opacity-40"
           >
             {busy ? "…" : "Войти"}
           </button>

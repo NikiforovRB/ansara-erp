@@ -24,7 +24,20 @@ export async function GET(req: Request) {
       return Response.json({ error: "status" }, { status: 400 });
     }
     const rows = await listProjectsWithMeta(status.data as ProjectStatusFilter);
-    const projects = rows.map((r) => {
+    const countsRows = await db
+      .select({
+        status: projects.status,
+        total: sql<number>`count(*)::int`.mapWith(Number),
+      })
+      .from(projects)
+      .groupBy(projects.status);
+    const counts = {
+      active: 0,
+      paused: 0,
+      completed: 0,
+    } as Record<ProjectStatusFilter, number>;
+    for (const row of countsRows) counts[row.status] = row.total;
+    const projectsOut = rows.map((r) => {
       const bp = r.backlogPreview;
       if (!bp) return r;
       if ("variant" in bp && bp.variant === "all_completed") return r;
@@ -39,7 +52,7 @@ export async function GET(req: Request) {
       }
       return r;
     });
-    return Response.json({ projects });
+    return Response.json({ projects: projectsOut, counts });
   } catch (e) {
     if (e instanceof Response) throw e;
     const message = e instanceof Error ? e.message : String(e);

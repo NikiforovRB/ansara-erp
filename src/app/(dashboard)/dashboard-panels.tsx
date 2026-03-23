@@ -578,6 +578,7 @@ export function CustomerPanel({
 
   useEffect(() => {
     if (!open) return;
+    setData(null);
     setFetching(true);
     void (async () => {
       try {
@@ -814,6 +815,7 @@ export function DeadlineFormPanel({
 }) {
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
+  const [lkShowDeadline, setLkShowDeadline] = useState(true);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [fetching, setFetching] = useState(false);
@@ -827,6 +829,7 @@ export function DeadlineFormPanel({
       setStart(dl?.startAt ? formatDateYmdLocal(new Date(dl.startAt)) : "");
       setEnd(dl?.endAt ? formatDateYmdLocal(new Date(dl.endAt)) : "");
       setComment(dl?.comment ?? "");
+      setLkShowDeadline(j?.project?.lkShowDeadline !== false);
       setFetching(false);
     })();
   }, [open, projectId]);
@@ -841,6 +844,7 @@ export function DeadlineFormPanel({
           startAt: start ? dateYmdToStartIso(start) : null,
           endAt: end ? dateYmdToEndIso(end) : null,
           comment: comment || null,
+          lkShowDeadline,
         }),
       });
       onSaved();
@@ -864,19 +868,41 @@ export function DeadlineFormPanel({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-0.5">
           <label className="text-xs text-[var(--muted)]">Начало дедлайна</label>
-          <DatePickerField
-            value={start}
-            onChange={setStart}
-            className={fieldClass("w-full text-left")}
-          />
+          <div className="flex items-center gap-2">
+            <DatePickerField
+              value={start}
+              onChange={setStart}
+              className={fieldClass("w-full text-left")}
+            />
+            {start ? (
+              <button
+                type="button"
+                className="rounded px-2 py-1 text-xs text-[var(--muted)] hover:text-[#5A86EE]"
+                onClick={() => setStart("")}
+              >
+                Сбросить
+              </button>
+            ) : null}
+          </div>
         </div>
         <div className="flex min-w-0 flex-col gap-0.5">
           <label className="text-xs text-[var(--muted)]">Конец дедлайна</label>
-          <DatePickerField
-            value={end}
-            onChange={setEnd}
-            className={fieldClass("w-full text-left")}
-          />
+          <div className="flex items-center gap-2">
+            <DatePickerField
+              value={end}
+              onChange={setEnd}
+              className={fieldClass("w-full text-left")}
+            />
+            {end ? (
+              <button
+                type="button"
+                className="rounded px-2 py-1 text-xs text-[var(--muted)] hover:text-[#5A86EE]"
+                onClick={() => setEnd("")}
+              >
+                Сбросить
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
       <label className="mt-4 block text-xs text-[var(--muted)]">Комментарий</label>
@@ -885,6 +911,15 @@ export function DeadlineFormPanel({
         value={comment}
         onChange={(e) => setComment(e.target.value)}
       />
+      <label className="mt-3 inline-flex items-center gap-2 text-sm text-[var(--foreground)]">
+        <input
+          type="checkbox"
+          className="h-4 w-4"
+          checked={lkShowDeadline}
+          onChange={(e) => setLkShowDeadline(e.target.checked)}
+        />
+        Отображать дедлайн в редакторе ЛК
+      </label>
     </RightPanel>
   );
 }
@@ -1738,6 +1773,7 @@ export function LkEditorPanel({
   const [lkTitle, setLkTitle] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
+  const [lkShowDeadline, setLkShowDeadline] = useState(true);
   const [dcomment, setDcomment] = useState("");
   const [commentEditing, setCommentEditing] = useState(false);
   const [deadlinePick, setDeadlinePick] = useState<null | "start" | "end">(null);
@@ -1800,6 +1836,7 @@ export function LkEditorPanel({
       const dl = j.deadline;
       setStart(dl?.startAt ? formatDateYmdLocal(new Date(dl.startAt)) : "");
       setEnd(dl?.endAt ? formatDateYmdLocal(new Date(dl.endAt)) : "");
+      setLkShowDeadline(j.project.lkShowDeadline !== false);
       setDcomment(dl?.comment ?? "");
 
       const led = (j.payments?.ledger ?? []) as { amountRubles: number }[];
@@ -1893,6 +1930,7 @@ export function LkEditorPanel({
         body: JSON.stringify({
           lkTitle,
           lkShowBacklog: false,
+          lkShowDeadline,
           stagesComment: stagesComment.trim() || null,
           deadline: {
             startAt: start ? dateYmdToStartIso(start) : null,
@@ -1979,46 +2017,48 @@ export function LkEditorPanel({
           </div>
 
           <div className="space-y-8">
-            <div className="mb-5">
-              <h3 className="lk-section-title">Текущий дедлайн</h3>
-              <div className="mt-2 w-full min-w-0">
-                <DeadlineBlock
-                  startAt={start ? dateYmdToStartIso(start) : null}
-                  endAt={end ? dateYmdToEndIso(end) : null}
-                  comment={null}
-                  onStartClick={() => setDeadlinePick("start")}
-                  onEndClick={() => setDeadlinePick("end")}
-                  startDateRef={startDateRef}
-                  endDateRef={endDateRef}
-                  commentSlot={
-                    <>
-                      {!dcomment.trim() && !commentEditing ? (
-                        <LkAddCommentTrigger
-                          className="mt-2"
-                          onClick={() => setCommentEditing(true)}
-                        />
-                      ) : commentEditing ? (
-                        <textarea
-                          autoFocus
-                          className={fieldClass("mt-2 min-h-[64px]")}
-                          value={dcomment}
-                          onChange={(e) => setDcomment(e.target.value)}
-                          onBlur={() => setCommentEditing(false)}
-                        />
-                      ) : (
-                        <button
-                          type="button"
-                          className="mt-2 w-full text-left text-sm text-[var(--muted)]"
-                          onClick={() => setCommentEditing(true)}
-                        >
-                          {dcomment}
-                        </button>
-                      )}
-                    </>
-                  }
-                />
+            {lkShowDeadline ? (
+              <div className="mb-5">
+                <h3 className="lk-section-title">Текущий дедлайн</h3>
+                <div className="mt-2 w-full min-w-0">
+                  <DeadlineBlock
+                    startAt={start ? dateYmdToStartIso(start) : null}
+                    endAt={end ? dateYmdToEndIso(end) : null}
+                    comment={null}
+                    onStartClick={() => setDeadlinePick("start")}
+                    onEndClick={() => setDeadlinePick("end")}
+                    startDateRef={startDateRef}
+                    endDateRef={endDateRef}
+                    commentSlot={
+                      <>
+                        {!dcomment.trim() && !commentEditing ? (
+                          <LkAddCommentTrigger
+                            className="mt-2"
+                            onClick={() => setCommentEditing(true)}
+                          />
+                        ) : commentEditing ? (
+                          <textarea
+                            autoFocus
+                            className={fieldClass("mt-2 min-h-[64px]")}
+                            value={dcomment}
+                            onChange={(e) => setDcomment(e.target.value)}
+                            onBlur={() => setCommentEditing(false)}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="mt-2 w-full text-left text-sm text-[var(--muted)]"
+                            onClick={() => setCommentEditing(true)}
+                          >
+                            {dcomment}
+                          </button>
+                        )}
+                      </>
+                    }
+                  />
+                </div>
               </div>
-            </div>
+            ) : null}
 
             <div className="mb-5">
               <LkSectionTitleBar

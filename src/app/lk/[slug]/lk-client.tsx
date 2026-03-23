@@ -6,6 +6,7 @@ import type { MutableRefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeadlineBlock } from "@/components/cells/deadline-block";
 import { IconCheckbox } from "@/components/icon-checkbox";
+import { SkeletonBlock } from "@/components/loading-skeleton";
 import { PaymentBlock } from "@/components/cells/payment-block";
 import { useTheme } from "@/components/theme-provider";
 import ansaraLogo from "@/icons/ANSARA.svg";
@@ -30,6 +31,7 @@ type ApiPayload = {
       longDescription: string | null;
       cms: string | null;
       remainingAmountRubles: number;
+      lkShowDeadline?: boolean;
       lkStagesComment?: string | null;
     };
     deadline: {
@@ -189,7 +191,6 @@ export function LkClient({ slug }: { slug: string }) {
   const [bootError, setBootError] = useState<string | null>(null);
   const [slider, setSlider] = useState<string[] | null>(null);
   const [sliderIdx, setSliderIdx] = useState(0);
-  const [loadProgress, setLoadProgress] = useState<number | null>(0);
 
   const pin = digits.join("");
 
@@ -226,11 +227,10 @@ export function LkClient({ slug }: { slug: string }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    setLoadProgress(0);
     try {
       const raw = await xhrGetJsonWithProgress(
         `/api/lk/${slug}/data`,
-        (p) => setLoadProgress(p),
+        () => {},
       );
       const j = JSON.parse(raw) as ApiPayload;
       setData(j);
@@ -246,7 +246,6 @@ export function LkClient({ slug }: { slug: string }) {
       }
     } finally {
       setLoading(false);
-      setLoadProgress(null);
     }
   }, [slug]);
 
@@ -298,28 +297,15 @@ export function LkClient({ slug }: { slug: string }) {
         style={{ backgroundColor: lkPageBg }}
       >
         <LkViewHeader />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <p className="p-6 text-center text-sm text-[var(--muted)]">Загрузка…</p>
-        </div>
-        <div
-          className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--table-divider)] bg-[var(--background)] px-4 py-3"
-          role="status"
-          aria-live="polite"
-        >
-          <div className="mx-auto max-w-md px-2">
-            <div className="mb-1 text-xs text-[var(--muted)]">
-              {loadProgress == null ? "Загрузка…" : `${loadProgress}%`}
+        <div className="mx-auto flex w-full min-w-0 max-w-[1200px] flex-1 flex-col px-3 py-8 sm:px-4">
+          <SkeletonBlock className="mx-auto h-8 w-72" />
+          <div className="mt-10 grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
+            <div className="space-y-6">
+              <SkeletonBlock className="h-40 w-full" />
+              <SkeletonBlock className="h-56 w-full" />
+              <SkeletonBlock className="h-40 w-full" />
             </div>
-            <div className="h-1.5 w-full overflow-hidden bg-[var(--foreground)]/10">
-              {loadProgress == null ? (
-                <div className="h-full w-1/3 animate-pulse bg-[#0f68e4]" />
-              ) : (
-                <div
-                  className="h-full bg-[#0f68e4] transition-[width] duration-150"
-                  style={{ width: `${loadProgress}%` }}
-                />
-              )}
-            </div>
+            <SkeletonBlock className="h-[560px] w-full" />
           </div>
         </div>
       </div>
@@ -400,18 +386,20 @@ export function LkClient({ slug }: { slug: string }) {
             <section
               className={`order-1 min-w-0 space-y-6 lg:col-start-2 lg:row-start-1 lg:space-y-8`}
             >
-              <div className={sectionShell} style={{ backgroundColor: cardBg }}>
-                <h2 className="lk-section-title">Текущий дедлайн</h2>
-                <div className="mt-4 w-full">
-                  <DeadlineBlock
-                    startAt={full.deadline?.startAt ?? null}
-                    endAt={full.deadline?.endAt ?? null}
-                    comment={full.deadline?.comment ?? null}
-                    className="w-full"
-                    commentClassName="text-sm whitespace-pre-wrap"
-                  />
+              {full.project.lkShowDeadline !== false ? (
+                <div className={sectionShell} style={{ backgroundColor: cardBg }}>
+                  <h2 className="lk-section-title">Текущий дедлайн</h2>
+                  <div className="mt-4 w-full">
+                    <DeadlineBlock
+                      startAt={full.deadline?.startAt ?? null}
+                      endAt={full.deadline?.endAt ?? null}
+                      comment={full.deadline?.comment ?? null}
+                      className="w-full"
+                      commentClassName="text-sm whitespace-pre-wrap"
+                    />
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               <div className={sectionShell} style={{ backgroundColor: cardBg }}>
                 <h2 className="lk-section-title">Этапы</h2>

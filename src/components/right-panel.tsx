@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { PanelSkeleton } from "@/components/loading-skeleton";
 import { useTheme } from "@/components/theme-provider";
 
 import closeBlack from "@/icons/close-black.svg";
@@ -167,6 +168,7 @@ export function RightPanel({
         style={{
           transform: slidIn ? "translate3d(0,0,0)" : "translate3d(100%,0,0)",
           transition: panelTransition,
+          ["--input-bg" as string]: theme === "dark" ? "#333333" : undefined,
         }}
         className="absolute right-0 top-0 flex h-[100dvh] w-[70vw] min-w-[280px] max-w-[1200px] flex-col bg-[var(--surface)] text-[var(--foreground)] shadow-xl"
         role="dialog"
@@ -198,7 +200,9 @@ export function RightPanel({
             />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-10 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-10 py-4">
+          {contentLoading ? <PanelSkeleton /> : children}
+        </div>
         {footer != null ? (
           <div
             className="shrink-0"

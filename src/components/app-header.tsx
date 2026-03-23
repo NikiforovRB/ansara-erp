@@ -32,6 +32,7 @@ export type HeaderUser = {
 type Props = {
   user: HeaderUser;
   statusFilter: "active" | "paused" | "completed";
+  statusCounts: Record<"active" | "paused" | "completed", number>;
   onStatusFilter: (s: "active" | "paused" | "completed") => void;
   onOpenSettings?: () => void;
   onOpenMyProfile: () => void;
@@ -126,6 +127,7 @@ function MenuRow({
 export function AppHeader({
   user,
   statusFilter,
+  statusCounts,
   onStatusFilter,
   onOpenSettings,
   onOpenMyProfile,
@@ -240,7 +242,7 @@ export function AppHeader({
                   : "text-[#666666] hover:text-white"
               }`}
             >
-              {label}
+              {label} • {statusCounts[key]}
             </button>
           ))}
         </div>

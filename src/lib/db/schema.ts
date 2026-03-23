@@ -69,6 +69,7 @@ export const projects = pgTable(
     slug: varchar("slug", { length: 6 }).notNull(),
     lkTitle: varchar("lk_title", { length: 512 }).notNull().default("Личный кабинет"),
     lkShowBacklog: boolean("lk_show_backlog").notNull().default(false),
+    lkShowDeadline: boolean("lk_show_deadline").notNull().default(true),
     lkStagesComment: text("lk_stages_comment"),
     remainingAmountRubles: integer("remaining_amount_rubles").notNull().default(0),
     dashboardSortOrder: integer("dashboard_sort_order").notNull().default(0),
