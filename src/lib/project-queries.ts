@@ -73,6 +73,18 @@ export async function listProjectsWithMeta(status: ProjectStatusFilter) {
     if (arr.length < 4) arr.push(b);
   }
 
+  const latestTimelineRows = await db
+    .select({
+      projectId: timelineEntries.projectId,
+      latestEntryDate: sql<string | null>`max(${timelineEntries.entryDate})`,
+    })
+    .from(timelineEntries)
+    .where(inArray(timelineEntries.projectId, ids))
+    .groupBy(timelineEntries.projectId);
+  const latestTimelineByProject = new Map(
+    latestTimelineRows.map((r) => [r.projectId, r.latestEntryDate]),
+  );
+
   const backlogRows = await db
     .select({
       list: backlogLists,
@@ -98,6 +110,7 @@ export async function listProjectsWithMeta(status: ProjectStatusFilter) {
         deadline: deadlineByProject.get(p.id) ?? null,
         paidRubles: paidByProject.get(p.id) ?? 0,
         paymentBlocks: blocksByProject.get(p.id) ?? [],
+        latestTimelineEntryDate: latestTimelineByProject.get(p.id) ?? null,
         backlogPreview: null,
       };
     }
@@ -108,6 +121,7 @@ export async function listProjectsWithMeta(status: ProjectStatusFilter) {
         deadline: deadlineByProject.get(p.id) ?? null,
         paidRubles: paidByProject.get(p.id) ?? 0,
         paymentBlocks: blocksByProject.get(p.id) ?? [],
+        latestTimelineEntryDate: latestTimelineByProject.get(p.id) ?? null,
         backlogPreview: { variant: "all_completed" as const },
       };
     }
@@ -117,6 +131,7 @@ export async function listProjectsWithMeta(status: ProjectStatusFilter) {
       deadline: deadlineByProject.get(p.id) ?? null,
       paidRubles: paidByProject.get(p.id) ?? 0,
       paymentBlocks: blocksByProject.get(p.id) ?? [],
+      latestTimelineEntryDate: latestTimelineByProject.get(p.id) ?? null,
       backlogPreview: {
         variant: "active" as const,
         assignee: last.assignee,

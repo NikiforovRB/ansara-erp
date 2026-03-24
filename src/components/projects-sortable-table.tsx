@@ -36,6 +36,9 @@ import editIcon from "@/icons/edit.svg";
 import eyeBlack from "@/icons/eye-black.svg";
 import eyeNav from "@/icons/eye-nav.svg";
 import eyeIcon from "@/icons/eye.svg";
+import copyBlack from "@/icons/copy-black.svg";
+import copyIcon from "@/icons/copy.svg";
+import copyNav from "@/icons/copy-nav.svg";
 import lkBlack from "@/icons/lk-black.svg";
 import lkIcon from "@/icons/lk.svg";
 import oplataBlack from "@/icons/oplata-black.svg";
@@ -64,6 +67,7 @@ export type ProjectRow = {
     comment: string | null;
   } | null;
   paidRubles: number;
+  latestTimelineEntryDate?: string | null;
   paymentBlocks?: { id: string; body: string | null; color: "green" | "gray" }[];
   backlogPreview:
     | null
@@ -250,6 +254,7 @@ function SortableProjectRow({
   onLk: () => void;
 }) {
   const { theme } = useTheme();
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const {
     attributes,
     listeners,
@@ -278,6 +283,34 @@ function SortableProjectRow({
     theme === "dark"
       ? "-mx-1 rounded-md px-1 py-1 transition-colors hover:bg-[#1d1d1e]"
       : "-mx-1 rounded-md px-1 py-1 transition-colors hover:bg-[#f5f5f5]";
+
+  const latestInfo = useMemo(() => {
+    const raw = row.latestTimelineEntryDate;
+    if (!raw) return null;
+    const d = new Date(`${raw}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return null;
+    const today = new Date();
+    const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const startEntry = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const diffDays = Math.round((startToday.getTime() - startEntry.getTime()) / 86400000);
+    const wd = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"][d.getDay()] ?? "";
+    const text = `${d.getDate()}, ${wd}`;
+    const isToday = diffDays === 0;
+    const isYesterday = diffDays === 1;
+    const isFridayCarry =
+      d.getDay() === 5 &&
+      ((today.getDay() === 6 && diffDays === 1) ||
+        (today.getDay() === 0 && diffDays === 2) ||
+        (today.getDay() === 1 && diffDays === 3));
+    const color = isToday
+      ? "#00B956"
+      : isYesterday || isFridayCarry
+        ? theme === "dark"
+          ? "#666666"
+          : "#a4a4a4"
+        : "#F33737";
+    return { text, color };
+  }, [row.latestTimelineEntryDate, theme]);
 
   return (
     <div ref={setNodeRef} style={style} className={`${COLS} border-b border-[var(--table-divider)] py-2`}>
@@ -329,22 +362,50 @@ function SortableProjectRow({
         />
       </div>
       <div className="flex min-h-[70px] w-full flex-col items-center justify-start gap-[5px] pt-0">
-        <LkActionButton
-          label="Редактор ЛК"
-          iconLight={editIcon}
-          iconDark={editBlack}
-          iconHover={editNav}
-          onClick={onLk}
-        />
-        <LkActionButton
-          label="Просмотр ЛК"
-          iconLight={eyeIcon}
-          iconDark={eyeBlack}
-          iconHover={eyeNav}
-          onClick={() =>
-            window.open(`/lk/${row.project.slug}`, "_blank", "noopener,noreferrer")
-          }
-        />
+        <div className="flex items-center">
+          <LkActionButton
+            label="Редактор ЛК"
+            iconLight={editIcon}
+            iconDark={editBlack}
+            iconHover={editNav}
+            onClick={onLk}
+          />
+          {latestInfo ? (
+            <span className="ml-[10px] text-[10px] leading-none" style={{ color: latestInfo.color }}>
+              {latestInfo.text}
+            </span>
+          ) : null}
+        </div>
+        <div className="flex items-center">
+          <LkActionButton
+            label="Просмотр ЛК"
+            iconLight={eyeIcon}
+            iconDark={eyeBlack}
+            iconHover={eyeNav}
+            onClick={() =>
+              window.open(`/lk/${row.project.slug}`, "_blank", "noopener,noreferrer")
+            }
+          />
+          <LkActionButton
+            label=""
+            className="ml-[10px]"
+            iconLight={copyIcon}
+            iconDark={copyBlack}
+            iconHover={copyNav}
+            onClick={() => {
+              const url = `${window.location.origin}/lk/${row.project.slug}`;
+              void navigator.clipboard.writeText(url).then(() => {
+                setCopiedLink(url);
+                window.setTimeout(() => setCopiedLink(null), 1000);
+              });
+            }}
+          />
+        </div>
+        {copiedLink ? (
+          <span className="mt-1 block text-[10px] text-[#00B956]">
+            Ссылка {copiedLink} скопирована
+          </span>
+        ) : null}
       </div>
       <div
         className={`flex min-h-[70px] max-w-[300px] flex-col items-stretch gap-[9px] ${cellHover} cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5A86EE]`}
