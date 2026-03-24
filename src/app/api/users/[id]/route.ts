@@ -11,6 +11,7 @@ const patchSchema = z.object({
   firstName: z.string().min(1).optional(),
   lastName: z.string().max(128).optional(),
   role: z.enum(["admin", "employee"]).optional(),
+  isActive: z.boolean().optional(),
 });
 
 const selfEmployeeSchema = z
@@ -54,11 +55,15 @@ export async function PATCH(req: Request, ctx: Ctx) {
     ) {
       return Response.json({ error: "Нельзя сменить свою роль" }, { status: 400 });
     }
+    if (data.isActive !== undefined && data.isActive === false) {
+      return Response.json({ error: "Нельзя деактивировать себя" }, { status: 400 });
+    }
     const patch: Record<string, unknown> = {};
     if (data.login !== undefined) patch.login = data.login;
     if (data.firstName !== undefined) patch.firstName = data.firstName;
     if (data.lastName !== undefined) patch.lastName = data.lastName;
     if (data.role !== undefined) patch.role = data.role;
+    if (data.isActive !== undefined) patch.isActive = data.isActive;
     if (data.password !== undefined) {
       patch.passwordHash = await bcrypt.hash(data.password, 10);
     }
@@ -80,6 +85,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
   if (data.firstName !== undefined) patch.firstName = data.firstName;
   if (data.lastName !== undefined) patch.lastName = data.lastName;
   if (data.role !== undefined) patch.role = data.role;
+  if (data.isActive !== undefined) patch.isActive = data.isActive;
   if (data.password !== undefined) {
     patch.passwordHash = await bcrypt.hash(data.password, 10);
   }
@@ -101,6 +107,7 @@ async function applyUserPatch(id: string, patch: Record<string, unknown>) {
         firstName: users.firstName,
         lastName: users.lastName,
         role: users.role,
+        isActive: users.isActive,
         avatarKey: users.avatarKey,
       });
     if (!row) return Response.json({ error: "Не найдено" }, { status: 404 });

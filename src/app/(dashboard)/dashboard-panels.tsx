@@ -17,7 +17,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import Image from "next/image";
 import type { ReactNode, RefObject } from "react";
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DeadlineBlock } from "@/components/cells/deadline-block";
 import { IconCheckbox } from "@/components/icon-checkbox";
 import { DatePickerField, MinimalDatePicker } from "@/components/minimal-date-picker";
@@ -64,6 +64,11 @@ import calNav from "@/icons/cal-nav.svg";
 import calIcon from "@/icons/cal.svg";
 import dragBlack from "@/icons/drag-black.svg";
 import dragIcon from "@/icons/drag.svg";
+import eyeBlack from "@/icons/eye-black.svg";
+import eyeIcon from "@/icons/eye.svg";
+import eyeNav from "@/icons/eye-nav.svg";
+import eyeOff from "@/icons/eyeoff.svg";
+import eyeOffNav from "@/icons/eyeoff-nav.svg";
 import oplataBlack from "@/icons/oplata-black.svg";
 import oplataIcon from "@/icons/oplata.svg";
 import oplataNav from "@/icons/oplata-nav.svg";
@@ -1555,6 +1560,17 @@ function SortableLkStageTaskRow({
     opacity: isDragging ? 0.85 : 1,
     zIndex: isDragging ? 2 : undefined,
   };
+  const taskRef = useRef<HTMLTextAreaElement>(null);
+  const fitTaskHeight = useCallback(() => {
+    const el = taskRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.max(30, el.scrollHeight)}px`;
+  }, []);
+
+  useLayoutEffect(() => {
+    fitTaskHeight();
+  }, [task.description, fitTaskHeight]);
 
   return (
     <div
@@ -1569,7 +1585,7 @@ function SortableLkStageTaskRow({
             }
           : {}),
       }}
-      className={`flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto border-b border-[var(--table-divider)] py-1 last:border-b-0 ${
+      className={`flex min-w-0 flex-wrap items-start gap-2 overflow-visible border-b border-[var(--table-divider)] py-1 last:border-b-0 ${
         ti === 0 ? "pt-2" : ""
       }`}
     >
@@ -1591,11 +1607,13 @@ function SortableLkStageTaskRow({
         }
         ariaLabel="Выполнено"
       />
-      <input
-        className={`min-w-0 flex-1 border-0 bg-transparent text-sm outline-none ${
+      <textarea
+        ref={taskRef}
+        className={`min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent text-sm leading-snug whitespace-pre-wrap break-words outline-none ${
           task.done ? "line-through opacity-80" : ""
         }`}
         value={task.description}
+        rows={1}
         onChange={(e) =>
           setStages((prev) =>
             prev.map((x, j) =>
@@ -2144,7 +2162,7 @@ export function LkEditorPanel({
                       Комментарий
                     </span>
                     <textarea
-                      className="min-h-[88px] w-full resize-y rounded-lg bg-transparent px-3 py-2 text-sm outline-none"
+                      className="min-h-[88px] w-full resize-none overflow-hidden rounded-lg bg-transparent px-3 py-2 text-sm outline-none"
                       style={{
                         borderWidth: 1,
                         borderStyle: "solid",
@@ -2266,19 +2284,26 @@ export function SettingsPanel({
       firstName: string;
       lastName: string;
       role: "admin" | "employee";
+      isActive: boolean;
       avatarKey: string | null;
       avatarUrl: string | null;
     }[]
   >([]);
+  const [userOrder, setUserOrder] = useState<string[]>([]);
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [role, setRole] = useState<"admin" | "employee">("employee");
+  const userSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  );
 
   async function reload() {
-    const j = await fetchJson("/api/users").catch(() => ({ users: [] }));
-    setUsers(j.users ?? []);
+    const j = await fetchJson("/api/users?all=1").catch(() => ({ users: [] }));
+    const rows = j.users ?? [];
+    setUsers(rows);
+    setUserOrder(rows.map((u: { id: string }) => u.id));
   }
 
   useEffect(() => {
@@ -2312,6 +2337,23 @@ export function SettingsPanel({
       alert("Не удалось добавить");
     }
   }
+
+  function onUsersDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    setUserOrder((prev) => {
+      const oi = prev.indexOf(String(active.id));
+      const ni = prev.indexOf(String(over.id));
+      if (oi < 0 || ni < 0) return prev;
+      return arrayMove(prev, oi, ni);
+    });
+  }
+  const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
+  const orderedUsers = useMemo(() => {
+    const out = userOrder.map((id) => userMap.get(id)).filter(Boolean) as typeof users;
+    const missing = users.filter((u) => !userOrder.includes(u.id));
+    return [...out, ...missing];
+  }, [users, userOrder, userMap]);
 
   return (
     <RightPanel open={open} title="Настройки" onClose={onClose}>
@@ -2348,9 +2390,20 @@ export function SettingsPanel({
       </div>
 
       <div className="mt-10 space-y-8">
-        {users.map((u) => (
-          <UserRow key={u.id} u={u} onChange={() => void reload()} />
-        ))}
+        <DndContext
+          sensors={userSensors}
+          collisionDetection={closestCenter}
+          onDragEnd={onUsersDragEnd}
+        >
+          <SortableContext
+            items={orderedUsers.map((u) => u.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {orderedUsers.map((u) => (
+              <UserRow key={u.id} u={u} onChange={() => void reload()} />
+            ))}
+          </SortableContext>
+        </DndContext>
       </div>
     </RightPanel>
   );
@@ -2366,22 +2419,32 @@ function UserRow({
     firstName: string;
     lastName: string;
     role: "admin" | "employee";
+    isActive: boolean;
     avatarKey: string | null;
     avatarUrl: string | null;
   };
   onChange: () => void;
 }) {
+  const { theme } = useTheme();
   const [login, setLogin] = useState(u.login);
   const [firstName, setFirstName] = useState(u.firstName);
   const [lastName, setLastName] = useState(u.lastName);
   const [role, setRole] = useState(u.role);
+  const [isActive, setIsActive] = useState(u.isActive);
   const [pwd, setPwd] = useState("");
+  const drag = useSortable({ id: u.id });
+  const dragStyle = {
+    transform: CSS.Transform.toString(drag.transform),
+    transition: drag.transition,
+    opacity: drag.isDragging ? 0.86 : 1,
+  };
 
   useEffect(() => {
     setLogin(u.login);
     setFirstName(u.firstName);
     setLastName(u.lastName);
     setRole(u.role);
+    setIsActive(u.isActive);
     setPwd("");
   }, [u]);
 
@@ -2395,6 +2458,7 @@ function UserRow({
           firstName,
           lastName,
           role,
+          isActive,
           ...(pwd ? { password: pwd } : {}),
         }),
       });
@@ -2430,7 +2494,11 @@ function UserRow({
   }
 
   return (
-    <div className="border-b border-[var(--foreground)]/10 pb-8 last:border-b-0 last:pb-0">
+    <div
+      ref={drag.setNodeRef}
+      style={dragStyle}
+      className="border-b border-[var(--foreground)]/10 pb-8 last:border-b-0 last:pb-0"
+    >
       <div className="flex flex-wrap items-start gap-3">
         <label className="relative flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-[var(--foreground)]/10 text-center text-[10px] leading-tight text-[var(--muted)]">
           {u.avatarUrl ? (
@@ -2470,6 +2538,47 @@ function UserRow({
                 <option value="admin">Администратор</option>
               </select>
             </SettingsField>
+            <div className="flex flex-col gap-0.5">
+              <SettingsLbl>Статус</SettingsLbl>
+              <button
+                type="button"
+                className="group relative inline-flex h-9 w-9 items-center justify-center rounded"
+                aria-label={isActive ? "Активный" : "Неактивный"}
+                onClick={() => setIsActive((v) => !v)}
+              >
+                <Image
+                  src={
+                    isActive
+                      ? theme === "dark"
+                        ? eyeBlack
+                        : eyeIcon
+                      : eyeOff
+                  }
+                  alt=""
+                  width={20}
+                  height={20}
+                  unoptimized
+                  className="transition-opacity duration-200 group-hover:opacity-0"
+                />
+                <Image
+                  src={isActive ? eyeNav : eyeOffNav}
+                  alt=""
+                  width={20}
+                  height={20}
+                  unoptimized
+                  className="absolute opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                />
+              </button>
+            </div>
+            <button
+              type="button"
+              className="mt-5 cursor-grab touch-none p-1 text-[var(--muted)] active:cursor-grabbing"
+              aria-label="Перетащить сотрудника"
+              {...drag.attributes}
+              {...drag.listeners}
+            >
+              <Image src={theme === "dark" ? dragBlack : dragIcon} alt="" width={16} height={16} unoptimized />
+            </button>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <SettingsSaveButton onClick={() => void save()} />

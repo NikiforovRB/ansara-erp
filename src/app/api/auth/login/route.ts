@@ -26,6 +26,15 @@ export async function POST(req: Request) {
       .from(users)
       .where(eq(users.login, login))
       .limit(1);
+    if (user && user.isActive === false) {
+      return Response.json(
+        {
+          error:
+            "Ваша учётная запись стала неактивной. Все вопросы к Родиону.",
+        },
+        { status: 403 },
+      );
+    }
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       return Response.json(
         { error: "Неверный логин или пароль" },

@@ -179,6 +179,7 @@ function TimelineEntryBlock({
   onToggleEdit,
   onPatch,
   onUpdateEntry,
+  onDeleteEntry,
   onOpenSlider,
 }: {
   projectId: string;
@@ -187,11 +188,13 @@ function TimelineEntryBlock({
   onToggleEdit: () => void;
   onPatch: (patch: Partial<TlEntryEditor>) => void;
   onUpdateEntry: (fn: (e: TlEntryEditor) => TlEntryEditor) => void;
+  onDeleteEntry: () => void;
   onOpenSlider: (urls: string[], index: number) => void;
 }) {
   const { theme } = useTheme();
   const editBase = theme === "dark" ? editBlack : editIcon;
   const [uploadOverallPct, setUploadOverallPct] = useState<number | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
   const fitDescHeight = useCallback(() => {
     const el = descRef.current;
@@ -306,29 +309,56 @@ function TimelineEntryBlock({
             {entry.title.trim() || "Без заголовка"}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onToggleEdit}
-          className="group relative inline-flex h-8 w-8 shrink-0 items-center justify-center"
-          aria-label={expanded ? "Закрыть редактирование" : "Редактировать"}
-        >
-          <Image
-            src={editBase}
-            alt=""
-            width={18}
-            height={18}
-            unoptimized
-            className="transition-opacity duration-200 group-hover:opacity-0"
-          />
-          <Image
-            src={editNav}
-            alt=""
-            width={18}
-            height={18}
-            unoptimized
-            className="absolute opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-          />
-        </button>
+        <div className="flex items-center gap-1">
+          {expanded ? (
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteOpen(true)}
+              className="group relative inline-flex h-8 w-8 shrink-0 items-center justify-center"
+              aria-label="Удалить запись таймлайна"
+            >
+              <Image
+                src={theme === "dark" ? deleteBlack : deleteIcon}
+                alt=""
+                width={18}
+                height={18}
+                unoptimized
+                className="transition-opacity duration-200 group-hover:opacity-0"
+              />
+              <Image
+                src={deleteNav}
+                alt=""
+                width={18}
+                height={18}
+                unoptimized
+                className="absolute opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onToggleEdit}
+            className="group relative inline-flex h-8 w-8 shrink-0 items-center justify-center"
+            aria-label={expanded ? "Закрыть редактирование" : "Редактировать"}
+          >
+            <Image
+              src={editBase}
+              alt=""
+              width={18}
+              height={18}
+              unoptimized
+              className="transition-opacity duration-200 group-hover:opacity-0"
+            />
+            <Image
+              src={editNav}
+              alt=""
+              width={18}
+              height={18}
+              unoptimized
+              className="absolute opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            />
+          </button>
+        </div>
       </div>
 
       {expanded ? (
@@ -532,6 +562,41 @@ function TimelineEntryBlock({
           </div>
         </div>
       ) : null}
+      {confirmDeleteOpen ? (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="w-full max-w-md rounded-xl border p-5 shadow-xl"
+            style={{
+              backgroundColor: theme === "dark" ? "#1a1a1a" : "#ffffff",
+              borderColor: theme === "dark" ? "#474747" : "#dadada",
+            }}
+          >
+            <h4 className="text-base font-medium text-[var(--foreground)]">Удалить запись?</h4>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              Эта запись таймлайна будет удалена.
+            </p>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="rounded px-4 py-2 text-sm opacity-80 hover:opacity-100"
+                onClick={() => setConfirmDeleteOpen(false)}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
+                onClick={() => {
+                  setConfirmDeleteOpen(false);
+                  onDeleteEntry();
+                }}
+              >
+                Удалить
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -577,6 +642,10 @@ export function LkEditorTimelineSection({
                 prev.map((x) => (x.clientKey === e.clientKey ? fn(x) : x)),
               ),
             );
+          }}
+          onDeleteEntry={() => {
+            setTimeline((prev) => prev.filter((x) => x.clientKey !== e.clientKey));
+            setEditingKey((k) => (k === e.clientKey ? null : k));
           }}
           onOpenSlider={onOpenSlider}
         />

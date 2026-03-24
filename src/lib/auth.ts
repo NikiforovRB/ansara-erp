@@ -18,7 +18,8 @@ export async function getCurrentUser() {
     .from(users)
     .where(eq(users.id, session.userId))
     .limit(1);
-  return user ?? null;
+  if (!user || user.isActive === false) return null;
+  return user;
 }
 
 const jsonHeaders = { "Content-Type": "application/json" };

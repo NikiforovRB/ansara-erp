@@ -49,6 +49,7 @@ export const users = pgTable("users", {
   firstName: varchar("first_name", { length: 128 }).notNull(),
   lastName: varchar("last_name", { length: 128 }).notNull(),
   role: userRoleEnum("role").notNull().default("employee"),
+  isActive: boolean("is_active").notNull().default(true),
   avatarKey: text("avatar_key"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
