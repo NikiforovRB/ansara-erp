@@ -14,7 +14,7 @@ const putSchema = z.object({
   textBlocks: z.array(
     z.object({
       body: z.string().optional().nullable(),
-      color: z.enum(["green", "gray"]),
+      color: z.enum(["green", "gray", "neutral"]),
     }),
   ),
   ledger: z.array(
@@ -53,13 +53,20 @@ export async function PUT(req: Request, ctx: Ctx) {
   }
   const { remainingAmountRubles, textBlocks, ledger, documents: docs } =
     parsed.data;
+  const ledgerSorted = [...ledger].sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
+  const docsSorted = [...docs].sort((a, b) => b.docDate.localeCompare(a.docDate));
+  const lkShowPayments = (json as { lkShowPayments?: boolean } | null)?.lkShowPayments;
 
   await ensureDocumentsLinkTitleColumn();
 
   await db.transaction(async (tx) => {
     await tx
       .update(projects)
-      .set({ remainingAmountRubles, updatedAt: new Date() })
+      .set({
+        remainingAmountRubles,
+        ...(typeof lkShowPayments === "boolean" ? { lkShowPayments } : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(projects.id, id));
 
     await tx.delete(paymentTextBlocks).where(eq(paymentTextBlocks.projectId, id));
@@ -75,9 +82,9 @@ export async function PUT(req: Request, ctx: Ctx) {
     }
 
     await tx.delete(paymentLedger).where(eq(paymentLedger.projectId, id));
-    if (ledger.length) {
+    if (ledgerSorted.length) {
       await tx.insert(paymentLedger).values(
-        ledger.map((row) => ({
+        ledgerSorted.map((row) => ({
           projectId: id,
           amountRubles: row.amountRubles,
           paymentDate: row.paymentDate,
@@ -87,9 +94,9 @@ export async function PUT(req: Request, ctx: Ctx) {
     }
 
     await tx.delete(documents).where(eq(documents.projectId, id));
-    if (docs.length) {
+    if (docsSorted.length) {
       await tx.insert(documents).values(
-        docs.map((row) => ({
+        docsSorted.map((row) => ({
           projectId: id,
           docDate: row.docDate,
           url: row.url,

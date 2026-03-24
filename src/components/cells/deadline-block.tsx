@@ -58,8 +58,10 @@ export function DeadlineBlock({
   const chipBg = neutralBar
     ? theme === "light"
       ? "#a4a4a426"
-      : "#66666626"
+      : "#a09f9f33"
     : `${bar}26`;
+  const chipTextFixed =
+    theme === "dark" && neutralBar ? "#a09f9f" : chipText;
 
   const dateRow = (
     <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-2 text-xs text-[var(--muted)]">
@@ -115,7 +117,7 @@ export function DeadlineBlock({
         <span
           className="inline-block rounded-full px-3 py-1 text-xs font-medium transition-colors"
           style={{
-            color: chipText,
+            color: chipTextFixed,
             backgroundColor: chipBg,
           }}
         >

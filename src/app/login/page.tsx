@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [clientHintOpen, setClientHintOpen] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -82,7 +83,40 @@ export default function LoginPage() {
             {busy ? "…" : "Войти"}
           </button>
         </form>
+        <button
+          type="button"
+          className="mt-6 w-full text-center text-sm text-[var(--muted)] underline decoration-[var(--muted)]/40 underline-offset-4 hover:text-[#5A86EE]"
+          onClick={() => setClientHintOpen(true)}
+        >
+          Вы являетесь клиентом? Нажмите здесь
+        </button>
       </div>
+      {clientHintOpen ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="w-full max-w-lg rounded-xl border p-5 shadow-xl"
+            style={{
+              backgroundColor: theme === "dark" ? "#1a1a1a" : "#ffffff",
+              borderColor: theme === "dark" ? "#474747" : "#dadada",
+            }}
+          >
+            <p className="text-sm text-[var(--foreground)]">
+              Это страница входа только для сотрудников студии ANSARA. Чтобы получить ссылку на
+              ваш личный кабинет, свяжитесь пожалуйста с Родионом
+            </p>
+            <p className="mt-2 text-xl font-medium text-[var(--foreground)]">8 925 611-11-07</p>
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                className="rounded px-4 py-2 text-sm opacity-80 hover:opacity-100"
+                onClick={() => setClientHintOpen(false)}
+              >
+                Понятно
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

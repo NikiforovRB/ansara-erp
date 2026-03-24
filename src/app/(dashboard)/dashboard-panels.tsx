@@ -940,7 +940,15 @@ type DocRow = {
   linkTitle: string | null;
   comment: string | null;
 };
-type BlockRow = { body: string | null; color: "green" | "gray" };
+type BlockRow = { body: string | null; color: "green" | "gray" | "neutral" };
+
+function sortLedgerRows(rows: LedgerRow[]) {
+  return [...rows].sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
+}
+
+function sortDocRows(rows: DocRow[]) {
+  return [...rows].sort((a, b) => b.docDate.localeCompare(a.docDate));
+}
 
 export function PaymentsFormPanel({
   open,
@@ -957,6 +965,7 @@ export function PaymentsFormPanel({
   const [remaining, setRemaining] = useState(0);
   const [remStr, setRemStr] = useState("0");
   const [blocks, setBlocks] = useState<BlockRow[]>([]);
+  const [lkShowPayments, setLkShowPayments] = useState(true);
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [busy, setBusy] = useState(false);
@@ -979,12 +988,13 @@ export function PaymentsFormPanel({
       setRemaining(rem);
       setRemStr(formatThousandsRub(rem));
       setBlocks(
-        (j.payments?.textBlocks ?? []).map((b: { body: string | null; color: "green" | "gray" }) => ({
+        (j.payments?.textBlocks ?? []).map((b: { body: string | null; color: "green" | "gray" | "neutral" }) => ({
           body: b.body,
           color: b.color,
         })),
       );
-      setLedger(
+      setLkShowPayments(j.project?.lkShowPayments !== false);
+      setLedger(sortLedgerRows(
         (j.payments?.ledger ?? []).map(
           (r: { amountRubles: number; paymentDate: string; comment: string | null }) => ({
             amountRubles: r.amountRubles,
@@ -992,8 +1002,8 @@ export function PaymentsFormPanel({
             comment: r.comment,
           }),
         ),
-      );
-      setDocs(
+      ));
+      setDocs(sortDocRows(
         (j.payments?.documents ?? []).map(
           (r: {
             docDate: string;
@@ -1007,7 +1017,7 @@ export function PaymentsFormPanel({
             comment: r.comment,
           }),
         ),
-      );
+      ));
       setFetching(false);
     })();
   }, [open, projectId]);
@@ -1054,6 +1064,7 @@ export function PaymentsFormPanel({
         body: JSON.stringify({
           remainingAmountRubles: remaining,
           textBlocks: blocks,
+          lkShowPayments,
           ledger,
           documents: documentsOut,
         }),
@@ -1105,6 +1116,9 @@ export function PaymentsFormPanel({
             className="inline-flex h-8 w-[100px] items-center gap-1.5 rounded-full px-2"
             style={{
               backgroundColor: paymentChipStyles(b.color, theme).backgroundColor,
+              borderWidth: paymentChipStyles(b.color, theme).borderColor ? 1 : 0,
+              borderStyle: paymentChipStyles(b.color, theme).borderColor ? "solid" : "none",
+              borderColor: paymentChipStyles(b.color, theme).borderColor ?? "transparent",
             }}
           >
             <button
@@ -1115,7 +1129,17 @@ export function PaymentsFormPanel({
               onClick={() =>
                 setBlocks((prev) =>
                   prev.map((x, j) =>
-                    j === i ? { ...x, color: x.color === "green" ? "gray" : "green" } : x,
+                    j === i
+                      ? {
+                          ...x,
+                          color:
+                            x.color === "green"
+                              ? "gray"
+                              : x.color === "gray"
+                                ? "neutral"
+                                : "green",
+                        }
+                      : x,
                   ),
                 )
               }
@@ -1152,6 +1176,15 @@ export function PaymentsFormPanel({
           <Image src={plusOnly} alt="" width={20} height={20} unoptimized />
         </button>
       </div>
+      <label className="mt-3 inline-flex items-center gap-2 text-sm text-[var(--foreground)]">
+        <input
+          type="checkbox"
+          className="h-4 w-4"
+          checked={lkShowPayments}
+          onChange={(e) => setLkShowPayments(e.target.checked)}
+        />
+        Отображать в ЛК клиента
+      </label>
 
       <div className="mt-10">
         <h3 className="modal-section-title text-[var(--foreground)]">Поступившие оплаты</h3>
@@ -1173,8 +1206,10 @@ export function PaymentsFormPanel({
                                   value={row.paymentDate}
                                   onChange={(v) =>
                                     setLedger((prev) =>
-                                      prev.map((x, j) =>
-                                        j === i ? { ...x, paymentDate: v } : x,
+                                      sortLedgerRows(
+                                        prev.map((x, j) =>
+                                          j === i ? { ...x, paymentDate: v } : x,
+                                        ),
                                       ),
                                     )
                                   }
@@ -1301,7 +1336,7 @@ export function PaymentsFormPanel({
                 },
               ];
               setEditLedger(next.length - 1);
-              return next;
+              return sortLedgerRows(next);
             });
           }}
         >
@@ -1346,7 +1381,9 @@ export function PaymentsFormPanel({
                                 value={row.docDate}
                                 onChange={(v) =>
                                   setDocs((prev) =>
-                                    prev.map((x, j) => (j === i ? { ...x, docDate: v } : x)),
+                                    sortDocRows(
+                                      prev.map((x, j) => (j === i ? { ...x, docDate: v } : x)),
+                                    ),
                                   )
                                 }
                                 className={fieldClass("w-full text-left")}
@@ -1486,7 +1523,7 @@ export function PaymentsFormPanel({
                 },
               ];
               setEditDoc(next.length - 1);
-              return next;
+              return sortDocRows(next);
             });
           }}
         >
@@ -1802,9 +1839,11 @@ export function LkEditorPanel({
   const [stages, setStages] = useState<StRow[]>([]);
   const [stagesComment, setStagesComment] = useState("");
   const [stagesCommentOpen, setStagesCommentOpen] = useState(false);
+  const stagesCommentRef = useRef<HTMLTextAreaElement>(null);
   const [paid, setPaid] = useState(0);
   const [remaining, setRemaining] = useState(0);
   const [payBlocks, setPayBlocks] = useState<BlockRow[]>([]);
+  const [lkShowPayments, setLkShowPayments] = useState(true);
   const [busy, setBusy] = useState(false);
   const [slider, setSlider] = useState<string[] | null>(null);
   const [sliderIdx, setSliderIdx] = useState(0);
@@ -1813,6 +1852,12 @@ export function LkEditorPanel({
   const activeDeadlineRef: RefObject<HTMLButtonElement | null> =
     deadlinePick === "start" ? startDateRef : endDateRef;
   const { theme } = useTheme();
+  const fitStagesCommentHeight = useCallback(() => {
+    const el = stagesCommentRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.max(36, el.scrollHeight)}px`;
+  }, []);
 
   const stageSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -1860,8 +1905,9 @@ export function LkEditorPanel({
       const led = (j.payments?.ledger ?? []) as { amountRubles: number }[];
       setPaid(led.reduce((s, r) => s + r.amountRubles, 0));
       setRemaining((j.project as { remainingAmountRubles?: number }).remainingAmountRubles ?? 0);
+      setLkShowPayments(j.project?.lkShowPayments !== false);
       setPayBlocks(
-        (j.payments?.textBlocks ?? []).map((b: { body: string | null; color: "green" | "gray" }) => ({
+        (j.payments?.textBlocks ?? []).map((b: { body: string | null; color: "green" | "gray" | "neutral" }) => ({
           body: b.body,
           color: b.color,
         })),
@@ -1939,6 +1985,10 @@ export function LkEditorPanel({
     })();
   }, [open, projectId]);
 
+  useLayoutEffect(() => {
+    fitStagesCommentHeight();
+  }, [stagesComment, stagesCommentOpen, fitStagesCommentHeight]);
+
   async function save() {
     setBusy(true);
     try {
@@ -1949,6 +1999,7 @@ export function LkEditorPanel({
           lkTitle,
           lkShowBacklog: false,
           lkShowDeadline,
+          lkShowPayments,
           stagesComment: stagesComment.trim() || null,
           deadline: {
             startAt: start ? dateYmdToStartIso(start) : null,
@@ -2162,7 +2213,9 @@ export function LkEditorPanel({
                       Комментарий
                     </span>
                     <textarea
-                      className="min-h-[88px] w-full resize-none overflow-hidden rounded-lg bg-transparent px-3 py-2 text-sm outline-none"
+                      ref={stagesCommentRef}
+                      rows={1}
+                      className="w-full resize-none overflow-hidden rounded-lg bg-transparent px-3 py-2 text-sm outline-none"
                       style={{
                         borderWidth: 1,
                         borderStyle: "solid",
@@ -2179,6 +2232,7 @@ export function LkEditorPanel({
               </div>
             </div>
 
+            {lkShowPayments ? (
             <div>
               <h3 className="lk-section-title">Оплаты</h3>
               <div className="mt-2 w-full min-w-0">
@@ -2197,6 +2251,9 @@ export function LkEditorPanel({
                       style={{
                         color: chip.color,
                         backgroundColor: chip.backgroundColor,
+                        borderWidth: chip.borderColor ? 1 : 0,
+                        borderStyle: chip.borderColor ? "solid" : "none",
+                        borderColor: chip.borderColor ?? "transparent",
                       }}
                     >
                       <span className="min-w-0 truncate">{hasText ? b.body : "\u00A0"}</span>
@@ -2205,6 +2262,7 @@ export function LkEditorPanel({
                 })}
               </div>
             </div>
+            ) : null}
           </div>
         </div>
       </RightPanel>
@@ -2432,6 +2490,7 @@ function UserRow({
   const [role, setRole] = useState(u.role);
   const [isActive, setIsActive] = useState(u.isActive);
   const [pwd, setPwd] = useState("");
+  const [savedMsg, setSavedMsg] = useState(false);
   const drag = useSortable({ id: u.id });
   const dragStyle = {
     transform: CSS.Transform.toString(drag.transform),
@@ -2446,7 +2505,15 @@ function UserRow({
     setRole(u.role);
     setIsActive(u.isActive);
     setPwd("");
+    setSavedMsg(false);
   }, [u]);
+  const dirty =
+    login !== u.login ||
+    firstName !== u.firstName ||
+    lastName !== u.lastName ||
+    role !== u.role ||
+    isActive !== u.isActive ||
+    pwd.trim().length > 0;
 
   async function save() {
     try {
@@ -2462,6 +2529,8 @@ function UserRow({
           ...(pwd ? { password: pwd } : {}),
         }),
       });
+      setSavedMsg(true);
+      window.setTimeout(() => setSavedMsg(false), 1800);
       onChange();
     } catch {
       alert("Ошибка сохранения");
@@ -2584,6 +2653,12 @@ function UserRow({
             <SettingsSaveButton onClick={() => void save()} />
             <SettingsDeleteButton onClick={() => void remove()} />
           </div>
+          {dirty ? (
+            <p className="text-xs text-[var(--muted)]">
+              Не забудьте нажать на кнопку «Сохранить», чтобы изменения вступили в силу
+            </p>
+          ) : null}
+          {savedMsg ? <p className="text-xs text-[#00B956]">Все изменения сохранены</p> : null}
         </div>
       </div>
     </div>

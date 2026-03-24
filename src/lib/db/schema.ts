@@ -33,6 +33,7 @@ export const cmsEnum = pgEnum("cms", [
 export const paymentTextColorEnum = pgEnum("payment_text_color", [
   "green",
   "gray",
+  "neutral",
 ]);
 
 export const backlogListStatusEnum = pgEnum("backlog_list_status", [
@@ -71,6 +72,7 @@ export const projects = pgTable(
     lkTitle: varchar("lk_title", { length: 512 }).notNull().default("Личный кабинет"),
     lkShowBacklog: boolean("lk_show_backlog").notNull().default(false),
     lkShowDeadline: boolean("lk_show_deadline").notNull().default(true),
+    lkShowPayments: boolean("lk_show_payments").notNull().default(true),
     lkStagesComment: text("lk_stages_comment"),
     remainingAmountRubles: integer("remaining_amount_rubles").notNull().default(0),
     dashboardSortOrder: integer("dashboard_sort_order").notNull().default(0),

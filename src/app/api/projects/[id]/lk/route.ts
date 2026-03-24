@@ -16,6 +16,7 @@ const putSchema = z.object({
   lkTitle: z.string().min(1),
   lkShowBacklog: z.boolean(),
   lkShowDeadline: z.boolean().optional().default(true),
+  lkShowPayments: z.boolean().optional().default(true),
   deadline: z.object({
     startAt: z.string().datetime().optional().nullable(),
     endAt: z.string().datetime().optional().nullable(),
@@ -90,6 +91,7 @@ export async function PUT(req: Request, ctx: Ctx) {
     lkTitle,
     lkShowBacklog,
     lkShowDeadline,
+    lkShowPayments,
     deadline,
     timeline,
     stages: stagePayload,
@@ -105,6 +107,7 @@ export async function PUT(req: Request, ctx: Ctx) {
           lkTitle,
           lkShowBacklog,
           lkShowDeadline,
+          lkShowPayments,
           lkStagesComment: stagesComment ?? null,
           updatedAt: new Date(),
         })

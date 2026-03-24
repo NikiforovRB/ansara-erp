@@ -141,6 +141,15 @@ export function RightPanel({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (!rendered) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [rendered]);
+
   function onAsideTransitionEnd(e: React.TransitionEvent<HTMLElement>) {
     if (e.propertyName !== "transform") return;
     if (!openRef.current) setRendered(false);

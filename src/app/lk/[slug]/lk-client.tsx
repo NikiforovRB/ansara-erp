@@ -11,8 +11,10 @@ import { PaymentBlock } from "@/components/cells/payment-block";
 import { useTheme } from "@/components/theme-provider";
 import ansaraLogo from "@/icons/ANSARA.svg";
 import checkboxCompleteIcon from "@/icons/checkboxcomplete.svg";
+import completeIcon from "@/icons/complete.svg";
 import moonIcon from "@/icons/moon.svg";
 import moonNavIcon from "@/icons/moon-nav.svg";
+import pauseIcon from "@/icons/pause.svg";
 import sunIcon from "@/icons/sun.svg";
 import sunNavIcon from "@/icons/sun-nav.svg";
 import closeBlack from "@/icons/close-black.svg";
@@ -26,12 +28,14 @@ type ApiPayload = {
   full: {
     project: {
       lkTitle: string;
+      status: "active" | "paused" | "completed";
       customerName: string;
       shortDescription: string | null;
       longDescription: string | null;
       cms: string | null;
       remainingAmountRubles: number;
       lkShowDeadline?: boolean;
+      lkShowPayments?: boolean;
       lkStagesComment?: string | null;
     };
     deadline: {
@@ -58,7 +62,7 @@ type ApiPayload = {
     }[];
     payments: {
       ledger: { amountRubles: number }[];
-      textBlocks: { body: string | null; color: "green" | "gray" }[];
+      textBlocks: { body: string | null; color: "green" | "gray" | "neutral" }[];
     };
   };
 };
@@ -381,6 +385,23 @@ export function LkClient({ slug }: { slug: string }) {
           <h1 className="lk-section-title text-center text-balance break-words px-1 max-lg:!text-[1.25rem] max-lg:!leading-snug">
             {full.project.lkTitle}
           </h1>
+          <div className="mt-3 flex justify-center">
+            {full.project.status === "active" ? (
+              <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm text-[#00B956]" style={{ backgroundColor: "#00B95633" }}>
+                <Image src={completeIcon} alt="" width={14} height={14} unoptimized />
+                Проект в работе
+              </div>
+            ) : full.project.status === "paused" ? (
+              <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm text-[#a09f9f]" style={{ backgroundColor: "#a09f9f33" }}>
+                <Image src={pauseIcon} alt="" width={14} height={14} unoptimized />
+                Проект на паузе
+              </div>
+            ) : (
+              <div className="inline-flex items-center rounded-full px-3 py-1 text-sm text-[#a09f9f]" style={{ backgroundColor: "#a09f9f33" }}>
+                Все работы завершены. Проект не в работе.
+              </div>
+            )}
+          </div>
 
           <div className="mt-10 grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
             <section
@@ -462,7 +483,8 @@ export function LkClient({ slug }: { slug: string }) {
                 </div>
               </div>
 
-              <div className={sectionShell} style={{ backgroundColor: cardBg }}>
+              {full.project.lkShowPayments !== false ? (
+                <div className={sectionShell} style={{ backgroundColor: cardBg }}>
                 <h2 className="lk-section-title">Оплаты</h2>
                 <div className="mt-4 w-full">
                   <PaymentBlock paidRubles={paid} remainingRubles={remaining} lkView />
@@ -480,6 +502,9 @@ export function LkClient({ slug }: { slug: string }) {
                         style={{
                           color: chip.color,
                           backgroundColor: chip.backgroundColor,
+                          borderWidth: chip.borderColor ? 1 : 0,
+                          borderStyle: chip.borderColor ? "solid" : "none",
+                          borderColor: chip.borderColor ?? "transparent",
                         }}
                       >
                         <span className="min-w-0 truncate">{hasText ? b.body : "\u00A0"}</span>
@@ -488,6 +513,7 @@ export function LkClient({ slug }: { slug: string }) {
                   })}
                 </div>
               </div>
+              ) : null}
             </section>
 
             <section
@@ -534,7 +560,8 @@ export function LkClient({ slug }: { slug: string }) {
                               key={ii}
                               src={im.webpUrl || ""}
                               alt=""
-                              className="aspect-[3/2] w-full min-w-0 cursor-pointer rounded-lg object-cover"
+                              className="aspect-[3/2] w-full min-w-0 cursor-pointer rounded-lg border object-cover"
+                              style={{ borderColor: theme === "dark" ? "#2f2f2f" : "#f0f1f8" }}
                               onClick={() => {
                                 const urls = (imagesByEntry.get(e.id) ?? [])
                                   .map((x) => x.originalUrl || x.webpUrl)

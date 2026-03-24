@@ -68,7 +68,7 @@ export type ProjectRow = {
   } | null;
   paidRubles: number;
   latestTimelineEntryDate?: string | null;
-  paymentBlocks?: { id: string; body: string | null; color: "green" | "gray" }[];
+  paymentBlocks?: { id: string; body: string | null; color: "green" | "gray" | "neutral" }[];
   backlogPreview:
     | null
     | { variant: "all_completed" }
@@ -138,7 +138,7 @@ function LkActionButton({
 function PaymentBlocksPreview({
   blocks,
 }: {
-  blocks: { id: string; body: string | null; color: "green" | "gray" }[];
+  blocks: { id: string; body: string | null; color: "green" | "gray" | "neutral" }[];
 }) {
   const { theme } = useTheme();
   if (!blocks.length) return null;
@@ -156,6 +156,9 @@ function PaymentBlocksPreview({
             style={{
               color: chip.color,
               backgroundColor: chip.backgroundColor,
+              borderWidth: chip.borderColor ? 1 : 0,
+              borderStyle: chip.borderColor ? "solid" : "none",
+              borderColor: chip.borderColor ?? "transparent",
             }}
           >
             {hasText ? b.body : "\u00A0"}
