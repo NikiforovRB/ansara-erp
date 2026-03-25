@@ -310,7 +310,7 @@ export function AppHeader({
 
           {menuOpen ? (
             <div
-              className="absolute right-0 top-full z-50 mt-1 min-w-[200px] overflow-hidden rounded-lg py-1 shadow-lg"
+              className="absolute right-0 top-full z-50 mt-1 min-w-[280px] overflow-hidden rounded-lg py-1 shadow-lg"
               style={{ backgroundColor: "#000000" }}
               role="menu"
             >
