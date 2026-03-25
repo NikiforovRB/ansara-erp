@@ -9,7 +9,7 @@ import { deleteObjectKey, getBucket, getS3Client, publicObjectUrl } from "@/lib/
 
 type Ctx = { params: Promise<{ id: string }> };
 
-const MAX_BYTES = 12 * 1024 * 1024;
+const MAX_BYTES = 40 * 1024 * 1024;
 
 export async function POST(req: Request, ctx: Ctx) {
   await requireUser();
@@ -48,7 +48,7 @@ export async function POST(req: Request, ctx: Ctx) {
 
   let webpBuf: Buffer;
   try {
-    webpBuf = await sharp(buf)
+    webpBuf = await sharp(buf, { limitInputPixels: false })
       .rotate()
       .resize({ width: 1600, withoutEnlargement: true })
       .webp({ quality: 82 })

@@ -255,31 +255,36 @@ function TimelineEntryBlock({
     setUploadOverallPct(0);
 
     try {
-      await Promise.all(
-        arr.map((file, i) => {
-          const sid = slotIds[i]!;
-          return uploadTimelineImageXHR(projectId, file, (p) => {
-            progresses[i] = p;
-            bumpOverall();
-          }).then((j) => {
-            URL.revokeObjectURL(blobUrls[i]!);
-            onUpdateEntry((ent) => ({
-              ...ent,
-              images: ent.images.map((im) =>
-                im.id === sid
-                  ? {
-                      id: im.id,
-                      originalKey: j.originalKey,
-                      webpKey: j.webpKey,
-                      webpUrl: j.webpUrl,
-                      originalUrl: j.originalUrl,
-                    }
-                  : im,
-              ),
-            }));
-          });
-        }),
-      );
+      // Avoid overloading server on big batches: upload with limited concurrency.
+      const CONCURRENCY = 2;
+      let nextIdx = 0;
+      const runOne = async () => {
+        const i = nextIdx++;
+        if (i >= arr.length) return;
+        const file = arr[i]!;
+        const sid = slotIds[i]!;
+        const j = await uploadTimelineImageXHR(projectId, file, (p) => {
+          progresses[i] = p;
+          bumpOverall();
+        });
+        URL.revokeObjectURL(blobUrls[i]!);
+        onUpdateEntry((ent) => ({
+          ...ent,
+          images: ent.images.map((im) =>
+            im.id === sid
+              ? {
+                  id: im.id,
+                  originalKey: j.originalKey,
+                  webpKey: j.webpKey,
+                  webpUrl: j.webpUrl,
+                  originalUrl: j.originalUrl,
+                }
+              : im,
+          ),
+        }));
+        await runOne();
+      };
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, arr.length) }, () => runOne()));
     } catch {
       alert("Загрузка не удалась");
       for (const u of blobUrls) {

@@ -841,6 +841,13 @@ export function DeadlineFormPanel({
   const [end, setEnd] = useState("");
   const [lkShowDeadline, setLkShowDeadline] = useState(true);
   const [comment, setComment] = useState("");
+  const commentRef = useRef<HTMLTextAreaElement>(null);
+  const fitDeadlineCommentHeight = useCallback(() => {
+    const el = commentRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.max(36, el.scrollHeight)}px`;
+  }, []);
   const [calendarPlanUrl, setCalendarPlanUrl] = useState<string | null>(null);
   const [calendarPlanUploadingPct, setCalendarPlanUploadingPct] = useState<number | null>(null);
   const [calendarPlanBusy, setCalendarPlanBusy] = useState(false);
@@ -857,6 +864,7 @@ export function DeadlineFormPanel({
       setStart(dl?.startAt ? formatDateYmdLocal(new Date(dl.startAt)) : "");
       setEnd(dl?.endAt ? formatDateYmdLocal(new Date(dl.endAt)) : "");
       setComment(dl?.comment ?? "");
+      window.setTimeout(() => fitDeadlineCommentHeight(), 0);
       setLkShowDeadline(j?.project?.lkShowDeadline !== false);
       setCustomerName(j?.project?.customerName ?? "");
       setCalendarPlanUrl(
@@ -871,6 +879,10 @@ export function DeadlineFormPanel({
       setFetching(false);
     })();
   }, [open, projectId]);
+
+  useLayoutEffect(() => {
+    fitDeadlineCommentHeight();
+  }, [comment, fitDeadlineCommentHeight]);
 
   async function uploadCalendarPlanImage(file: File) {
     setCalendarPlanBusy(true);
@@ -984,7 +996,9 @@ export function DeadlineFormPanel({
       </div>
       <label className="mt-4 block text-xs text-[var(--muted)]">Комментарий</label>
       <textarea
-        className={fieldClass("min-h-[96px]")}
+        ref={commentRef}
+        rows={1}
+        className={fieldClass("min-h-[36px] resize-none overflow-hidden")}
         value={comment}
         onChange={(e) => setComment(e.target.value)}
       />
