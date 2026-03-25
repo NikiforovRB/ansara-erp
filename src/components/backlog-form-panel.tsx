@@ -287,6 +287,7 @@ export function BacklogFormPanel({
   onSaved: () => void;
 }) {
   const { theme } = useTheme();
+  const [customerName, setCustomerName] = useState("");
   const [lists, setLists] = useState<BlList[]>([]);
   const [staff, setStaff] = useState<StaffUser[]>([]);
   const [busy, setBusy] = useState(false);
@@ -310,6 +311,7 @@ export function BacklogFormPanel({
         fetchJson("/api/users").catch(() => ({ users: [] })),
       ]);
       setStaff(u.users ?? []);
+        setCustomerName(j?.project?.customerName ?? "");
       if (!j || !j.backlog) {
         setLists([]);
         setExpanded({});
@@ -429,6 +431,11 @@ export function BacklogFormPanel({
       contentLoading={fetching}
       saving={busy}
     >
+      {customerName ? (
+        <p className="mb-4 text-sm" style={{ color: theme === "dark" ? "#666666" : "#a4a4a4" }}>
+          {customerName}
+        </p>
+      ) : null}
       <button
         type="button"
         className={`group inline-flex items-center gap-2 text-sm transition-colors ${addListMuted}`}

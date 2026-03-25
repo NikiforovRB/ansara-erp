@@ -60,6 +60,9 @@ import closeNav from "@/icons/close-nav.svg";
 import editBlack from "@/icons/edit-black.svg";
 import editIcon from "@/icons/edit.svg";
 import addDocumentNav from "@/icons/add-document-nav.svg";
+import photoBlack from "@/icons/photo-black.svg";
+import photoIcon from "@/icons/photo.svg";
+import photoNav from "@/icons/photo-nav.svg";
 import calBlack from "@/icons/cal-black.svg";
 import calNav from "@/icons/cal-nav.svg";
 import calIcon from "@/icons/cal.svg";
@@ -82,6 +85,7 @@ import oplataIcon from "@/icons/oplata.svg";
 import oplataNav from "@/icons/oplata-nav.svg";
 import { paymentChipStyles } from "@/lib/payment-chip";
 import { roleLabel } from "@/lib/role-labels";
+import { xhrPostFormDataJsonWithProgress } from "@/lib/xhr-get-json";
 import { nanoid } from "nanoid";
 
 async function fetchJson(url: string, init?: RequestInit) {
@@ -719,6 +723,12 @@ export function CustomerPanel({
           <p className="text-sm text-[var(--muted)]">Загрузка…</p>
         ) : (
           <>
+            <p
+              className="mb-4 text-sm"
+              style={{ color: theme === "dark" ? "#666666" : "#a4a4a4" }}
+            >
+              {customerName}
+            </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex min-w-0 flex-col gap-0.5">
               <SettingsLbl>Имя заказчика</SettingsLbl>
@@ -826,10 +836,15 @@ export function DeadlineFormPanel({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { theme } = useTheme();
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [lkShowDeadline, setLkShowDeadline] = useState(true);
   const [comment, setComment] = useState("");
+  const [calendarPlanUrl, setCalendarPlanUrl] = useState<string | null>(null);
+  const [calendarPlanUploadingPct, setCalendarPlanUploadingPct] = useState<number | null>(null);
+  const [calendarPlanBusy, setCalendarPlanBusy] = useState(false);
+  const [customerName, setCustomerName] = useState("");
   const [busy, setBusy] = useState(false);
   const [fetching, setFetching] = useState(false);
 
@@ -843,9 +858,53 @@ export function DeadlineFormPanel({
       setEnd(dl?.endAt ? formatDateYmdLocal(new Date(dl.endAt)) : "");
       setComment(dl?.comment ?? "");
       setLkShowDeadline(j?.project?.lkShowDeadline !== false);
+      setCustomerName(j?.project?.customerName ?? "");
+      setCalendarPlanUrl(
+        (dl as { calendarPlanWebpUrl?: string | null; calendarPlanOriginalUrl?: string | null })
+          ?.calendarPlanWebpUrl ??
+          (dl as { calendarPlanWebpUrl?: string | null; calendarPlanOriginalUrl?: string | null })
+            ?.calendarPlanOriginalUrl ??
+          null,
+      );
+      setCalendarPlanUploadingPct(null);
+      setCalendarPlanBusy(false);
       setFetching(false);
     })();
   }, [open, projectId]);
+
+  async function uploadCalendarPlanImage(file: File) {
+    setCalendarPlanBusy(true);
+    setCalendarPlanUploadingPct(0);
+    try {
+      const form = new FormData();
+      form.set("file", file);
+      const res = await xhrPostFormDataJsonWithProgress<{
+        originalUrl: string;
+        webpUrl: string;
+      }>(`/api/projects/${projectId}/deadline-plan`, form, setCalendarPlanUploadingPct);
+      setCalendarPlanUrl(res.webpUrl || res.originalUrl);
+    } catch {
+      alert("Ошибка");
+      setCalendarPlanUploadingPct(null);
+    } finally {
+      setCalendarPlanBusy(false);
+      window.setTimeout(() => setCalendarPlanUploadingPct(null), 650);
+    }
+  }
+
+  async function deleteCalendarPlanImage() {
+    setCalendarPlanBusy(true);
+    try {
+      await fetchJson(`/api/projects/${projectId}/deadline-plan`, {
+        method: "DELETE",
+      });
+      setCalendarPlanUrl(null);
+    } catch {
+      alert("Ошибка");
+    } finally {
+      setCalendarPlanBusy(false);
+    }
+  }
 
   async function save() {
     setBusy(true);
@@ -878,6 +937,11 @@ export function DeadlineFormPanel({
       contentLoading={fetching}
       saving={busy}
     >
+      {customerName ? (
+        <p className="mb-4 text-sm" style={{ color: theme === "dark" ? "#666666" : "#a4a4a4" }}>
+          {customerName}
+        </p>
+      ) : null}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-0.5">
           <label className="text-xs text-[var(--muted)]">Начало дедлайна</label>
@@ -933,6 +997,86 @@ export function DeadlineFormPanel({
         />
         Отображать дедлайн в редакторе ЛК
       </label>
+
+      <div style={{ marginTop: calendarPlanUrl ? 10 : 100 }}>
+        {!calendarPlanUrl ? (
+          <label
+            className={`group inline-flex cursor-pointer items-center gap-2 text-sm ${
+              theme === "dark" ? "text-[#666666]" : "text-[#a4a4a4]"
+            } hover:text-[#5A86EE]`}
+          >
+            <span className="relative inline-flex h-6 w-6 items-center justify-center">
+              <Image
+                src={theme === "dark" ? photoBlack : photoIcon}
+                alt=""
+                width={18}
+                height={18}
+                unoptimized
+                className="transition-opacity duration-200 group-hover:opacity-0"
+              />
+              <Image
+                src={photoNav}
+                alt=""
+                width={18}
+                height={18}
+                unoptimized
+                className="absolute opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              />
+            </span>
+            Добавить изображение календарного плана
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              disabled={calendarPlanBusy}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (!f) return;
+                void uploadCalendarPlanImage(f);
+              }}
+            />
+          </label>
+        ) : (
+          <div className="relative w-full max-w-[500px] overflow-hidden rounded-lg border border-[var(--foreground)]/15">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={calendarPlanUrl}
+              alt=""
+              className="block h-auto w-full"
+            />
+            <button
+              type="button"
+              aria-label="Удалить изображение"
+              disabled={calendarPlanBusy}
+              onClick={() => void deleteCalendarPlanImage()}
+              className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/70 transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              <Image src={deleteIcon} alt="" width={18} height={18} unoptimized />
+            </button>
+          </div>
+        )}
+
+        {calendarPlanUploadingPct != null ? (
+          <div className="mt-3 flex items-center gap-2">
+            <div
+              className="h-[3px] min-h-[3px] flex-1 overflow-hidden rounded-full"
+              style={{
+                backgroundColor:
+                  "color-mix(in srgb, var(--foreground) 12%, transparent)",
+              }}
+            >
+              <div
+                className="h-full bg-[#00B956] transition-[width] duration-100 ease-out"
+                style={{ width: `${Math.max(0, Math.min(100, calendarPlanUploadingPct ?? 0))}%` }}
+              />
+            </div>
+            <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-[var(--muted)]">
+              {calendarPlanUploadingPct == null ? "—" : `${calendarPlanUploadingPct}%`}
+            </span>
+          </div>
+        ) : null}
+      </div>
     </RightPanel>
   );
 }
@@ -979,6 +1123,7 @@ export function PaymentsFormPanel({
   const [remStr, setRemStr] = useState("0");
   const [blocks, setBlocks] = useState<BlockRow[]>([]);
   const [lkShowPayments, setLkShowPayments] = useState(true);
+  const [customerName, setCustomerName] = useState("");
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [busy, setBusy] = useState(false);
@@ -998,6 +1143,7 @@ export function PaymentsFormPanel({
         return;
       }
       const rem = j.project.remainingAmountRubles ?? 0;
+      setCustomerName(j.project.customerName ?? "");
       setRemaining(rem);
       setRemStr(formatThousandsRub(rem));
       setBlocks(
@@ -1254,6 +1400,11 @@ export function PaymentsFormPanel({
       contentLoading={fetching}
       saving={busy}
     >
+      {customerName ? (
+        <p className="mb-4 text-sm" style={{ color: theme === "dark" ? "#666666" : "#a4a4a4" }}>
+          {customerName}
+        </p>
+      ) : null}
       <div className="flex w-full flex-wrap items-start justify-between gap-6">
         <div className="min-w-0 flex-1 basis-[min(100%,28rem)]">
           <PaymentBlock paidRubles={paid} remainingRubles={remaining} />
@@ -2020,6 +2171,7 @@ export function LkEditorPanel({
   const [remaining, setRemaining] = useState(0);
   const [payBlocks, setPayBlocks] = useState<BlockRow[]>([]);
   const [lkShowPayments, setLkShowPayments] = useState(true);
+  const [customerName, setCustomerName] = useState("");
   const [busy, setBusy] = useState(false);
   const [slider, setSlider] = useState<string[] | null>(null);
   const [sliderIdx, setSliderIdx] = useState(0);
@@ -2069,6 +2221,7 @@ export function LkEditorPanel({
         return;
       }
       setLkTitle(j.project.lkTitle ?? "");
+      setCustomerName(j.project.customerName ?? "");
       setStagesComment(
         String((j.project as { lkStagesComment?: string | null }).lkStagesComment ?? ""),
       );
@@ -2224,6 +2377,11 @@ export function LkEditorPanel({
         contentLoading={lkLoad}
         saving={busy}
       >
+        {customerName ? (
+          <p className="mb-4 text-sm" style={{ color: theme === "dark" ? "#666666" : "#a4a4a4" }}>
+            {customerName}
+          </p>
+        ) : null}
         <div className="flex flex-col gap-0.5">
           <label className="text-xs text-[var(--muted)]">Заголовок ЛК</label>
           <input className={fieldClass()} value={lkTitle} onChange={(e) => setLkTitle(e.target.value)} />

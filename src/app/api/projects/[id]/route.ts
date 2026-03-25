@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { projects, timelineEntries, timelineImages } from "@/lib/db/schema";
+import { projectDeadlines, projects, timelineEntries, timelineImages } from "@/lib/db/schema";
 import { getProjectFull } from "@/lib/project-queries";
 import { deleteObjectKey, tryPublicObjectUrl } from "@/lib/s3";
 
@@ -40,8 +40,22 @@ export async function GET(_req: Request, ctx: Ctx) {
     webpUrl: tryPublicObjectUrl(im.webpKey),
     originalUrl: tryPublicObjectUrl(im.originalKey),
   }));
+  const deadline = full.deadline
+    ? {
+        ...full.deadline,
+        calendarPlanOriginalUrl: tryPublicObjectUrl(
+          (full.deadline as { calendarPlanOriginalKey?: string | null })
+            .calendarPlanOriginalKey,
+        ),
+        calendarPlanWebpUrl: tryPublicObjectUrl(
+          (full.deadline as { calendarPlanWebpKey?: string | null })
+            .calendarPlanWebpKey,
+        ),
+      }
+    : null;
   return Response.json({
     ...full,
+    deadline,
     timeline: { ...full.timeline, images },
   });
 }
@@ -83,11 +97,28 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     .from(timelineImages)
     .innerJoin(timelineEntries, eq(timelineImages.entryId, timelineEntries.id))
     .where(eq(timelineEntries.projectId, id));
+
+  const [deadlineRow] = await db
+    .select({
+      calendarPlanOriginalKey: projectDeadlines.calendarPlanOriginalKey,
+      calendarPlanWebpKey: projectDeadlines.calendarPlanWebpKey,
+    })
+    .from(projectDeadlines)
+    .where(eq(projectDeadlines.projectId, id))
+    .limit(1);
+
   const deleted = await db.delete(projects).where(eq(projects.id, id)).returning();
   if (!deleted.length) return Response.json({ error: "Не найдено" }, { status: 404 });
   const keys = Array.from(
     new Set(imageRows.flatMap((r) => [r.originalKey, r.webpKey]).filter(Boolean)),
   );
+  if (deadlineRow) {
+    keys.push(
+      ...[deadlineRow.calendarPlanOriginalKey, deadlineRow.calendarPlanWebpKey].filter(
+        (x): x is string => Boolean(x),
+      ),
+    );
+  }
   await Promise.allSettled(keys.map((key) => deleteObjectKey(key)));
   return Response.json({ ok: true });
 }

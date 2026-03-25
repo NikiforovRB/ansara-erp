@@ -26,7 +26,7 @@
   --deadline-meta: #666666;
   --lk-border: #333333;
   --status-bar-track: color-mix(in srgb, var(--foreground) 20%, transparent);
-  --modal-footer-bg: #1a1a1a;
+  --modal-footer-bg: #272728;
 }
 
 .lk-section-title {

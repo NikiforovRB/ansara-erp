@@ -94,6 +94,8 @@ export const projectDeadlines = pgTable("project_deadlines", {
   startAt: timestamp("start_at", { withTimezone: true }),
   endAt: timestamp("end_at", { withTimezone: true }),
   comment: text("comment"),
+  calendarPlanOriginalKey: text("calendar_plan_original_key"),
+  calendarPlanWebpKey: text("calendar_plan_webp_key"),
 });
 
 export const timelineEntries = pgTable("timeline_entries", {

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import type { ReactNode, RefObject } from "react";
 import { useTheme } from "@/components/theme-provider";
 import {
@@ -9,6 +10,9 @@ import {
   deadlineTone,
 } from "@/lib/deadline-ui";
 import { formatRuDayMonthWeekday } from "@/lib/dates";
+import calBlack from "@/icons/cal-black.svg";
+import calIcon from "@/icons/cal.svg";
+import calNav from "@/icons/cal-nav.svg";
 
 type Props = {
   startAt: string | null;
@@ -42,6 +46,44 @@ export function DeadlineBlock({
   const { theme } = useTheme();
   const start = startAt ? new Date(startAt) : null;
   const end = endAt ? new Date(endAt) : null;
+
+  // Empty state: allow "add deadline" affordance when clickable.
+  if (!start && !end && onClick && !onStartClick && !onEndClick) {
+    const base = theme === "dark" ? calBlack : calIcon;
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`group flex w-full items-center gap-2 text-left text-sm ${
+          className ?? ""
+        }`.trim()}
+        style={{ color: theme === "dark" ? "#666666" : "#a4a4a4" }}
+      >
+        <span className="relative inline-flex h-6 w-6 shrink-0 items-center justify-center">
+          <Image
+            src={base}
+            alt=""
+            width={18}
+            height={18}
+            unoptimized
+            className="transition-opacity duration-200 group-hover:opacity-0"
+          />
+          <Image
+            src={calNav}
+            alt=""
+            width={18}
+            height={18}
+            unoptimized
+            className="absolute opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+          />
+        </span>
+        <span className="transition-colors duration-200 group-hover:text-[#5A86EE]">
+          Добавить текущий дедлайн
+        </span>
+      </button>
+    );
+  }
+
   const tone = deadlineTone(end);
   const bar = deadlineBarColor(tone, theme);
   const { text } = deadlineDaysLabel(end);
