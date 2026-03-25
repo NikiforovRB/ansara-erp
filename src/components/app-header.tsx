@@ -20,6 +20,8 @@ import sunIcon from "@/icons/sun.svg";
 import sunNavIcon from "@/icons/sun-nav.svg";
 import userIcon from "@/icons/user.svg";
 import userNavIcon from "@/icons/user-nav.svg";
+import checkboxCompleteIcon from "@/icons/checkboxcomplete.svg";
+import checkboxBlackIcon from "@/icons/checkbox-black.svg";
 
 export type HeaderUser = {
   id: string;
@@ -37,6 +39,8 @@ type Props = {
   onOpenSettings?: () => void;
   onOpenMyProfile: () => void;
   onAddProject: () => void;
+  showBacklogColumn?: boolean;
+  onToggleShowBacklogColumn?: (next: boolean) => void;
 };
 
 function HeaderIcon({
@@ -132,6 +136,8 @@ export function AppHeader({
   onOpenSettings,
   onOpenMyProfile,
   onAddProject,
+  showBacklogColumn = true,
+  onToggleShowBacklogColumn,
 }: Props) {
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
@@ -317,6 +323,26 @@ export function AppHeader({
                   onOpenMyProfile();
                 }}
               />
+              {onToggleShowBacklogColumn ? (
+                <button
+                  type="button"
+                  onClick={() => onToggleShowBacklogColumn(!showBacklogColumn)}
+                  className="group flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-[#666666] transition-colors hover:text-[#5A86EE]"
+                  role="menuitemcheckbox"
+                  aria-checked={showBacklogColumn}
+                >
+                  <span className="relative h-[18px] w-[18px] shrink-0">
+                    <Image
+                      src={showBacklogColumn ? checkboxCompleteIcon : checkboxBlackIcon}
+                      alt=""
+                      width={18}
+                      height={18}
+                      unoptimized
+                    />
+                  </span>
+                  <span>Показывать «Бэклог»</span>
+                </button>
+              ) : null}
               <MenuRow
                 iconDefault={exitIcon}
                 iconHover={exitNavIcon}

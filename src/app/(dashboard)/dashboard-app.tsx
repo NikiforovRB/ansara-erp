@@ -25,6 +25,7 @@ type Status = "active" | "paused" | "completed";
 export function DashboardApp({ user }: { user: HeaderUser }) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<Status>("active");
+  const [showBacklogColumn, setShowBacklogColumn] = useState(true);
   const [rows, setRows] = useState<ProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusCounts, setStatusCounts] = useState<Record<Status, number>>({
@@ -82,6 +83,25 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("ansara.showBacklogColumn");
+      if (raw === "0") setShowBacklogColumn(false);
+      else if (raw === "1") setShowBacklogColumn(true);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  function setShowBacklogColumnPersist(next: boolean) {
+    setShowBacklogColumn(next);
+    try {
+      window.localStorage.setItem("ansara.showBacklogColumn", next ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  }
+
   function closePanel() {
     setPanel(null);
   }
@@ -103,6 +123,8 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
         }
         onAddProject={() => setPanel({ kind: "add" })}
         onOpenMyProfile={() => setPanel({ kind: "profile" })}
+        showBacklogColumn={showBacklogColumn}
+        onToggleShowBacklogColumn={setShowBacklogColumnPersist}
       />
 
       <div className="overflow-x-auto px-[40px] pb-8 pt-[26px]">
@@ -114,6 +136,7 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
             statusFilter={statusFilter}
             setPanel={setPanel}
             onOrderSaved={() => void refresh()}
+            showBacklogColumn={showBacklogColumn}
           />
         )}
       </div>

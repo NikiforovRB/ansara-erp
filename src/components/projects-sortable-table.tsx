@@ -53,8 +53,11 @@ import docRedIcon from "@/icons/doc-red.svg";
 import userDark from "@/icons/user.svg";
 import user1Icon from "@/icons/user1.svg";
 
-const COLS =
-  "grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)_minmax(0,0.9fr)_minmax(0,1.15fr)_minmax(0,1.05fr)_40px] gap-x-10";
+function cols(showBacklog: boolean) {
+  return showBacklog
+    ? "grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)_minmax(0,0.9fr)_minmax(0,1.15fr)_minmax(0,1.05fr)_40px] gap-x-10"
+    : "grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)_minmax(0,0.9fr)_minmax(0,1.15fr)_40px] gap-x-10";
+}
 
 export type ProjectRow = {
   project: {
@@ -274,6 +277,7 @@ function SortableProjectRow({
   onPayments,
   onBacklog,
   onLk,
+  showBacklogColumn,
 }: {
   row: ProjectRow;
   onCustomer: () => void;
@@ -281,6 +285,7 @@ function SortableProjectRow({
   onPayments: () => void;
   onBacklog: () => void;
   onLk: () => void;
+  showBacklogColumn: boolean;
 }) {
   const { theme } = useTheme();
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
@@ -342,7 +347,11 @@ function SortableProjectRow({
   }, [row.latestTimelineEntryDate, theme]);
 
   return (
-    <div ref={setNodeRef} style={style} className={`${COLS} border-b border-[var(--table-divider)] py-2`}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`${cols(showBacklogColumn)} border-b border-[var(--table-divider)] py-2`}
+    >
       <div className={`flex min-h-[70px] items-start pr-2 ${cellHover}`}>
         <button
           type="button"
@@ -455,15 +464,17 @@ function SortableProjectRow({
         />
         <PaymentBlocksPreview blocks={row.paymentBlocks ?? []} />
       </div>
-      <div className={`flex min-h-[70px] items-start ${cellHover}`}>
-        <button
-          type="button"
-          className="flex min-h-[70px] w-full flex-col items-start justify-start text-left"
-          onClick={onBacklog}
-        >
-          <BacklogCell preview={row.backlogPreview} />
-        </button>
-      </div>
+      {showBacklogColumn ? (
+        <div className={`flex min-h-[70px] items-start ${cellHover}`}>
+          <button
+            type="button"
+            className="flex min-h-[70px] w-full flex-col items-start justify-start text-left"
+            onClick={onBacklog}
+          >
+            <BacklogCell preview={row.backlogPreview} />
+          </button>
+        </div>
+      ) : null}
       <div className="flex min-h-[70px] items-start justify-end pt-0.5">
         <button
           type="button"
@@ -491,6 +502,7 @@ type Props = {
       | { kind: "lk"; id: string },
   ) => void;
   onOrderSaved?: () => void;
+  showBacklogColumn?: boolean;
 };
 
 function TableHeadIcon({
@@ -518,6 +530,7 @@ export function ProjectsSortableTable({
   statusFilter,
   setPanel,
   onOrderSaved,
+  showBacklogColumn = true,
 }: Props) {
   const ids = useMemo(() => rows.map((r) => r.project.id), [rows]);
   const [order, setOrder] = useState<string[]>(ids);
@@ -589,9 +602,9 @@ export function ProjectsSortableTable({
       collisionDetection={closestCenter}
       onDragEnd={onDragEnd}
     >
-      <div className="min-w-[900px]">
+      <div className={showBacklogColumn ? "min-w-[900px]" : "min-w-[760px]"}>
         <div
-          className={`${COLS} border-b border-[var(--table-divider)] pb-2 text-left text-xs`}
+          className={`${cols(showBacklogColumn)} border-b border-[var(--table-divider)] pb-2 text-left text-xs`}
         >
           <div className="pr-2">
             <TableHeadIcon iconLight={user1Icon} iconDark={userDark}>
@@ -609,9 +622,11 @@ export function ProjectsSortableTable({
           <TableHeadIcon iconLight={oplataIcon} iconDark={oplataBlack}>
             Оплаты и документы
           </TableHeadIcon>
-          <TableHeadIcon iconLight={beklogIcon} iconDark={beklogBlack}>
-            Бэклог
-          </TableHeadIcon>
+          {showBacklogColumn ? (
+            <TableHeadIcon iconLight={beklogIcon} iconDark={beklogBlack}>
+              Бэклог
+            </TableHeadIcon>
+          ) : null}
           <div aria-hidden />
         </div>
         <SortableContext items={order} strategy={verticalListSortingStrategy}>
@@ -622,8 +637,13 @@ export function ProjectsSortableTable({
               onCustomer={() => setPanel({ kind: "customer", id: r.project.id })}
               onDeadline={() => setPanel({ kind: "deadline", id: r.project.id })}
               onPayments={() => setPanel({ kind: "payments", id: r.project.id })}
-              onBacklog={() => setPanel({ kind: "backlog", id: r.project.id })}
+              onBacklog={
+                showBacklogColumn
+                  ? () => setPanel({ kind: "backlog", id: r.project.id })
+                  : () => {}
+              }
               onLk={() => setPanel({ kind: "lk", id: r.project.id })}
+              showBacklogColumn={showBacklogColumn}
             />
           ))}
         </SortableContext>
