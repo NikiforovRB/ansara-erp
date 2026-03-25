@@ -1929,7 +1929,7 @@ function SortableLkStageTaskRow({
     const el = taskRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.max(30, el.scrollHeight)}px`;
+    el.style.height = `${Math.max(24, el.scrollHeight)}px`;
   }, []);
 
   useLayoutEffect(() => {
@@ -1949,7 +1949,7 @@ function SortableLkStageTaskRow({
             }
           : {}),
       }}
-      className={`flex min-w-0 flex-wrap items-start gap-2 overflow-visible border-b border-[var(--table-divider)] py-1 last:border-b-0 ${
+      className={`flex min-w-0 flex-wrap items-center gap-2 overflow-visible border-b border-[var(--table-divider)] py-1 last:border-b-0 ${
         ti === 0 ? "pt-2" : ""
       }`}
     >
@@ -1973,7 +1973,7 @@ function SortableLkStageTaskRow({
       />
       <textarea
         ref={taskRef}
-        className={`min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent text-sm leading-snug whitespace-pre-wrap break-words outline-none ${
+        className={`min-w-0 flex-1 self-center resize-none overflow-hidden border-0 bg-transparent p-0 text-sm leading-snug whitespace-pre-wrap break-words outline-none ${
           task.done ? "line-through opacity-80" : ""
         }`}
         value={task.description}
