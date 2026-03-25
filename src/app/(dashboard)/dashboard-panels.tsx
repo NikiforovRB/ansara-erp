@@ -922,7 +922,12 @@ export function DeadlineFormPanel({
           if (xhr.status >= 200 && xhr.status < 300) resolve();
           else reject(new Error(`${xhr.status}: ${xhr.responseText || "s3_upload_failed"}`));
         };
-        xhr.onerror = () => reject(new Error("network"));
+        xhr.onerror = () =>
+          reject(
+            new Error(
+              "cors_blocked: S3 запретил запрос из браузера (нужен CORS на бакете для PUT).",
+            ),
+          );
         xhr.ontimeout = () => reject(new Error("timeout"));
         xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
         xhr.send(file);

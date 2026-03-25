@@ -139,7 +139,12 @@ export function uploadTimelineImageXHR(
           const out = (await finRes.json()) as TimelineUploadResult;
           resolve(out);
         };
-        xhr.onerror = () => reject(new Error("network"));
+        xhr.onerror = () =>
+          reject(
+            new Error(
+              "cors_blocked: S3 запретил запрос из браузера (нужен CORS на бакете для PUT).",
+            ),
+          );
         xhr.ontimeout = () => reject(new Error("timeout"));
         xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
         xhr.send(file);
