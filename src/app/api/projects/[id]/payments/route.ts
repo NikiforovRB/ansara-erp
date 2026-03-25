@@ -14,7 +14,7 @@ const putSchema = z.object({
   textBlocks: z.array(
     z.object({
       body: z.string().optional().nullable(),
-      color: z.enum(["green", "gray", "neutral"]),
+      color: z.enum(["green", "gray", "neutral", "red"]),
     }),
   ),
   ledger: z.array(

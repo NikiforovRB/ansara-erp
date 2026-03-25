@@ -15,6 +15,10 @@ import completeIcon from "@/icons/complete.svg";
 import moonIcon from "@/icons/moon.svg";
 import moonNavIcon from "@/icons/moon-nav.svg";
 import pauseIcon from "@/icons/pause.svg";
+import docSerIcon from "@/icons/docser.svg";
+import docSerBlackIcon from "@/icons/docser-black.svg";
+import docGreenIcon from "@/icons/doc-green.svg";
+import docRedIcon from "@/icons/doc-red.svg";
 import sunIcon from "@/icons/sun.svg";
 import sunNavIcon from "@/icons/sun-nav.svg";
 import closeBlack from "@/icons/close-black.svg";
@@ -62,7 +66,7 @@ type ApiPayload = {
     }[];
     payments: {
       ledger: { amountRubles: number }[];
-      textBlocks: { body: string | null; color: "green" | "gray" | "neutral" }[];
+      textBlocks: { body: string | null; color: "green" | "gray" | "neutral" | "red" }[];
     };
   };
 };
@@ -491,8 +495,32 @@ export function LkClient({ slug }: { slug: string }) {
                 </div>
                 <div className="mt-[7px] flex flex-wrap items-center gap-2">
                   {full.payments.textBlocks.map((b, i) => {
+                    if (b.body == null) {
+                      const src =
+                        b.color === "green"
+                          ? docGreenIcon
+                          : b.color === "red"
+                            ? docRedIcon
+                            : theme === "dark"
+                              ? docSerBlackIcon
+                              : docSerIcon;
+                      return (
+                        <div
+                          key={i}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full"
+                        >
+                          <Image src={src} alt="" width={20} height={20} unoptimized />
+                        </div>
+                      );
+                    }
+
                     const hasText = Boolean(b.body?.trim());
-                    const chip = paymentChipStyles(b.color, theme);
+                    const chip = paymentChipStyles(
+                      b.color === "red"
+                        ? "gray"
+                        : (b.color as "green" | "gray" | "neutral"),
+                      theme,
+                    );
                     return (
                       <div
                         key={i}

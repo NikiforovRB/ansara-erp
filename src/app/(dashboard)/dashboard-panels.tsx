@@ -13,6 +13,7 @@ import {
   arrayMove,
   useSortable,
   verticalListSortingStrategy,
+  horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import Image from "next/image";
@@ -69,6 +70,13 @@ import eyeIcon from "@/icons/eye.svg";
 import eyeNav from "@/icons/eye-nav.svg";
 import eyeOff from "@/icons/eyeoff.svg";
 import eyeOffNav from "@/icons/eyeoff-nav.svg";
+import addDocIcon from "@/icons/adddoc.svg";
+import addDocBlackIcon from "@/icons/adddoc-black.svg";
+import addDocNav from "@/icons/adddoc-nav.svg";
+import docSerIcon from "@/icons/docser.svg";
+import docSerBlackIcon from "@/icons/docser-black.svg";
+import docGreenIcon from "@/icons/doc-green.svg";
+import docRedIcon from "@/icons/doc-red.svg";
 import oplataBlack from "@/icons/oplata-black.svg";
 import oplataIcon from "@/icons/oplata.svg";
 import oplataNav from "@/icons/oplata-nav.svg";
@@ -940,7 +948,12 @@ type DocRow = {
   linkTitle: string | null;
   comment: string | null;
 };
-type BlockRow = { body: string | null; color: "green" | "gray" | "neutral" };
+type PaymentTextBlockState = "green" | "gray" | "neutral" | "red";
+type BlockRow = {
+  id: string;
+  body: string | null;
+  color: PaymentTextBlockState;
+};
 
 function sortLedgerRows(rows: LedgerRow[]) {
   return [...rows].sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
@@ -988,10 +1001,13 @@ export function PaymentsFormPanel({
       setRemaining(rem);
       setRemStr(formatThousandsRub(rem));
       setBlocks(
-        (j.payments?.textBlocks ?? []).map((b: { body: string | null; color: "green" | "gray" | "neutral" }) => ({
-          body: b.body,
-          color: b.color,
-        })),
+        (j.payments?.textBlocks ?? []).map(
+          (b: { id?: string; body: string | null; color: PaymentTextBlockState }) => ({
+            id: String(b.id ?? nanoid()),
+            body: b.body,
+            color: b.color,
+          }),
+        ),
       );
       setLkShowPayments(j.project?.lkShowPayments !== false);
       setLedger(sortLedgerRows(
@@ -1047,6 +1063,157 @@ export function PaymentsFormPanel({
   const closeSrc = theme === "dark" ? closeBlack : closeIcon;
   const plusOnly = theme === "dark" ? plusBlack : plusIcon;
 
+  const paymentSensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 6 },
+    }),
+  );
+
+  function cycleDocState(current: PaymentTextBlockState): PaymentTextBlockState {
+    // Doc icon has its own 3-state cycle: gray -> green -> red -> gray
+    if (current === "gray") return "green";
+    if (current === "green") return "red";
+    return "gray";
+  }
+
+  function onPaymentBlocksDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over) return;
+    if (active.id === over.id) return;
+    setBlocks((prev) => {
+      const oldIndex = prev.findIndex((x) => x.id === active.id);
+      const newIndex = prev.findIndex((x) => x.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+  }
+
+  function getDocIconSrc(color: PaymentTextBlockState) {
+    if (color === "green") return docGreenIcon;
+    if (color === "red") return docRedIcon;
+    return theme === "dark" ? docSerBlackIcon : docSerIcon;
+  }
+
+  function PaymentSortableItem({ item }: { item: BlockRow }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+      id: item.id,
+    });
+
+    const style = {
+      transform: transform ? CSS.Transform.toString(transform) : undefined,
+      transition,
+      opacity: isDragging ? 0.85 : 1,
+    };
+
+    if (item.body == null) {
+      return (
+        <div
+          ref={setNodeRef}
+          style={style}
+          className="inline-flex h-8 w-8 items-center justify-center"
+        >
+          <button
+            type="button"
+            aria-label="Состояние документа"
+            className="relative h-8 w-8 cursor-grab rounded-full"
+            onClick={() => {
+              if (isDragging) return;
+              setBlocks((prev) =>
+                prev.map((x) =>
+                  x.id === item.id ? { ...x, color: cycleDocState(x.color) } : x,
+                ),
+              );
+            }}
+            {...attributes}
+            {...listeners}
+          >
+            <Image src={getDocIconSrc(item.color)} alt="" width={20} height={20} unoptimized />
+            <button
+              type="button"
+              aria-label="Удалить документ"
+              className="absolute -right-0.5 -top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#F33737] shadow-sm"
+              onPointerDown={(e) => {
+                // Don't start dragging from the delete button.
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setBlocks((prev) => prev.filter((x) => x.id !== item.id));
+              }}
+            >
+              <span className="text-[10px] leading-none text-white">×</span>
+            </button>
+          </button>
+        </div>
+      );
+    }
+
+    const hasText = Boolean(item.body?.trim());
+    const chip = paymentChipStyles(
+      item.color === "red" ? "gray" : (item.color as "green" | "gray" | "neutral"),
+      theme,
+    );
+
+    return (
+      <div ref={setNodeRef} style={style} className="inline-flex">
+        <div
+          className={`inline-flex h-8 w-[100px] items-center gap-1.5 rounded-full px-2 ${
+            hasText ? "justify-start" : "justify-center"
+          }`}
+          style={{
+            backgroundColor: chip.backgroundColor,
+            borderWidth: chip.borderColor ? 1 : 0,
+            borderStyle: chip.borderColor ? "solid" : "none",
+            borderColor: chip.borderColor ?? "transparent",
+          }}
+        >
+          <button
+            type="button"
+            className="h-3.5 w-3.5 shrink-0 rounded-full"
+            style={{ backgroundColor: item.color === "green" ? "#00B956" : "#8c8c8e" }}
+            aria-label="Цвет"
+            onClick={() => {
+              setBlocks((prev) =>
+                prev.map((x) =>
+                  x.id === item.id
+                    ? {
+                        ...x,
+                        color:
+                          x.color === "green"
+                            ? "gray"
+                            : x.color === "gray"
+                              ? "neutral"
+                              : "green",
+                      }
+                    : x,
+                ),
+              );
+            }}
+          />
+          <input
+            type="text"
+            className="h-5 min-h-0 w-full min-w-0 border-0 bg-transparent py-0 text-xs leading-5 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            style={{ color: item.color === "green" ? "#00B956" : "#8c8c8e" }}
+            placeholder=" "
+            value={item.body ?? ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              setBlocks((prev) => prev.map((x) => (x.id === item.id ? { ...x, body: v } : x)));
+            }}
+          />
+          <button
+            type="button"
+            className="shrink-0 opacity-70 hover:opacity-100"
+            aria-label="Удалить блок"
+            onClick={() => setBlocks((prev) => prev.filter((x) => x.id !== item.id))}
+          >
+            <Image src={closeSrc} alt="" width={14} height={14} unoptimized />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   async function save() {
     setBusy(true);
     try {
@@ -1081,7 +1248,7 @@ export function PaymentsFormPanel({
   return (
     <RightPanel
       open={open}
-      title="Оплаты"
+      title="Оплаты и документы"
       onClose={onClose}
       footer={btnFooter(onClose, save, busy)}
       contentLoading={fetching}
@@ -1110,70 +1277,79 @@ export function PaymentsFormPanel({
       </div>
 
       <div className="mt-8 flex flex-wrap items-center gap-2">
-        {blocks.map((b, i) => (
-          <div
-            key={i}
-            className="inline-flex h-8 w-[100px] items-center gap-1.5 rounded-full px-2"
-            style={{
-              backgroundColor: paymentChipStyles(b.color, theme).backgroundColor,
-              borderWidth: paymentChipStyles(b.color, theme).borderColor ? 1 : 0,
-              borderStyle: paymentChipStyles(b.color, theme).borderColor ? "solid" : "none",
-              borderColor: paymentChipStyles(b.color, theme).borderColor ?? "transparent",
-            }}
+        <DndContext
+          sensors={paymentSensors}
+          collisionDetection={closestCenter}
+          onDragEnd={onPaymentBlocksDragEnd}
+        >
+          <SortableContext
+            items={blocks.map((b) => b.id)}
+            strategy={horizontalListSortingStrategy}
           >
-            <button
-              type="button"
-              className="h-3.5 w-3.5 shrink-0 rounded-full"
-              style={{ backgroundColor: b.color === "green" ? "#00B956" : "#8c8c8e" }}
-              aria-label="Цвет"
-              onClick={() =>
-                setBlocks((prev) =>
-                  prev.map((x, j) =>
-                    j === i
-                      ? {
-                          ...x,
-                          color:
-                            x.color === "green"
-                              ? "gray"
-                              : x.color === "gray"
-                                ? "neutral"
-                                : "green",
-                        }
-                      : x,
-                  ),
-                )
-              }
-            />
-            <input
-              type="text"
-              className="h-5 min-h-0 w-full min-w-0 border-0 bg-transparent py-0 text-xs leading-5 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              style={{ color: b.color === "green" ? "#00B956" : "#8c8c8e" }}
-              placeholder=" "
-              value={b.body ?? ""}
-              onChange={(e) =>
-                setBlocks((prev) =>
-                  prev.map((x, j) => (j === i ? { ...x, body: e.target.value } : x)),
-                )
-              }
-            />
-            <button
-              type="button"
-              className="shrink-0 opacity-70 hover:opacity-100"
-              aria-label="Удалить блок"
-              onClick={() => setBlocks((prev) => prev.filter((_, j) => j !== i))}
-            >
-              <Image src={closeSrc} alt="" width={14} height={14} unoptimized />
-            </button>
-          </div>
-        ))}
+            {blocks.map((b) => (
+              <PaymentSortableItem key={b.id} item={b} />
+            ))}
+          </SortableContext>
+        </DndContext>
+
         <button
           type="button"
           aria-label="Добавить блок"
           title="Добавить блок"
-          onClick={() => setBlocks((b) => [...b, { body: "", color: "gray" }])}
+          onClick={() =>
+            setBlocks((prev) => [
+              ...prev,
+              { id: nanoid(), body: "", color: "gray" },
+            ])
+          }
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded transition-opacity hover:opacity-80"
         >
           <Image src={plusOnly} alt="" width={20} height={20} unoptimized />
+        </button>
+
+        <button
+          type="button"
+          aria-label="Добавить документ"
+          title="Добавить документ"
+          onClick={() =>
+            setBlocks((prev) => {
+              const insertAfter = (() => {
+                for (let i = prev.length - 1; i >= 0; i--) {
+                  if (prev[i].body != null) return i;
+                }
+                return -1;
+              })();
+
+              const docItem: BlockRow = {
+                id: nanoid(),
+                body: null,
+                color: "gray",
+              };
+
+              const at = insertAfter + 1;
+              return [...prev.slice(0, at), docItem, ...prev.slice(at)];
+            })
+          }
+          className="group inline-flex h-9 w-9 shrink-0 items-center justify-center rounded transition-opacity hover:opacity-80"
+        >
+          <span className="relative h-8 w-8">
+            <Image
+              src={theme === "dark" ? addDocBlackIcon : addDocIcon}
+              alt=""
+              width={20}
+              height={20}
+              unoptimized
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200 group-hover:opacity-0"
+            />
+            <Image
+              src={addDocNav}
+              alt=""
+              width={20}
+              height={20}
+              unoptimized
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            />
+          </span>
         </button>
       </div>
       <label className="mt-3 inline-flex items-center gap-2 text-sm text-[var(--foreground)]">
@@ -1907,10 +2083,13 @@ export function LkEditorPanel({
       setRemaining((j.project as { remainingAmountRubles?: number }).remainingAmountRubles ?? 0);
       setLkShowPayments(j.project?.lkShowPayments !== false);
       setPayBlocks(
-        (j.payments?.textBlocks ?? []).map((b: { body: string | null; color: "green" | "gray" | "neutral" }) => ({
-          body: b.body,
-          color: b.color,
-        })),
+        (j.payments?.textBlocks ?? []).map(
+          (b: { id?: string; body: string | null; color: PaymentTextBlockState }) => ({
+            id: String(b.id ?? nanoid()),
+            body: b.body,
+            color: b.color,
+          }),
+        ),
       );
 
       const byEntry = new Map<string, TlEntryEditor>();
@@ -2239,12 +2418,35 @@ export function LkEditorPanel({
                 <PaymentBlock paidRubles={paid} remainingRubles={remaining} />
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
-                {payBlocks.map((b, i) => {
+                {payBlocks.map((b) => {
+                  if (b.body == null) {
+                    const src =
+                      b.color === "green"
+                        ? docGreenIcon
+                        : b.color === "red"
+                          ? docRedIcon
+                          : theme === "dark"
+                            ? docSerBlackIcon
+                            : docSerIcon;
+                    return (
+                      <div
+                        key={b.id}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full"
+                      >
+                        <Image src={src} alt="" width={20} height={20} unoptimized />
+                      </div>
+                    );
+                  }
+
                   const hasText = Boolean(b.body?.trim());
-                  const chip = paymentChipStyles(b.color, theme);
+                  const chipColor = b.color === "red" ? "gray" : b.color;
+                  const chip = paymentChipStyles(
+                    chipColor as "green" | "gray" | "neutral",
+                    theme,
+                  );
                   return (
                     <div
-                      key={i}
+                      key={b.id}
                       className={`inline-flex max-w-full min-h-[24px] shrink-0 items-center rounded-full py-0.5 text-xs whitespace-nowrap ${
                         hasText ? "px-3" : "w-[43px] justify-center px-0"
                       }`}
@@ -2256,7 +2458,9 @@ export function LkEditorPanel({
                         borderColor: chip.borderColor ?? "transparent",
                       }}
                     >
-                      <span className="min-w-0 truncate">{hasText ? b.body : "\u00A0"}</span>
+                      <span className="min-w-0 truncate">
+                        {hasText ? b.body : "\u00A0"}
+                      </span>
                     </div>
                   );
                 })}

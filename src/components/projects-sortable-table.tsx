@@ -46,6 +46,10 @@ import oplataIcon from "@/icons/oplata.svg";
 import pauseBlack from "@/icons/pause-black.svg";
 import pauseIcon from "@/icons/pause.svg";
 import completeIcon from "@/icons/complete.svg";
+import docSerIcon from "@/icons/docser.svg";
+import docSerBlackIcon from "@/icons/docser-black.svg";
+import docGreenIcon from "@/icons/doc-green.svg";
+import docRedIcon from "@/icons/doc-red.svg";
 import userDark from "@/icons/user.svg";
 import user1Icon from "@/icons/user1.svg";
 
@@ -68,7 +72,7 @@ export type ProjectRow = {
   } | null;
   paidRubles: number;
   latestTimelineEntryDate?: string | null;
-  paymentBlocks?: { id: string; body: string | null; color: "green" | "gray" | "neutral" }[];
+  paymentBlocks?: { id: string; body: string | null; color: "green" | "gray" | "neutral" | "red" }[];
   backlogPreview:
     | null
     | { variant: "all_completed" }
@@ -138,15 +142,37 @@ function LkActionButton({
 function PaymentBlocksPreview({
   blocks,
 }: {
-  blocks: { id: string; body: string | null; color: "green" | "gray" | "neutral" }[];
+  blocks: { id: string; body: string | null; color: "green" | "gray" | "neutral" | "red" }[];
 }) {
   const { theme } = useTheme();
   if (!blocks.length) return null;
   return (
     <div className="flex flex-wrap items-center gap-2">
       {blocks.map((b) => {
+        if (b.body == null) {
+          const src =
+            b.color === "green"
+              ? docGreenIcon
+              : b.color === "red"
+                ? docRedIcon
+                : theme === "dark"
+                  ? docSerBlackIcon
+                  : docSerIcon;
+          return (
+            <div
+              key={b.id}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full"
+            >
+              <Image src={src} alt="" width={20} height={20} unoptimized />
+            </div>
+          );
+        }
+
         const hasText = Boolean(b.body?.trim());
-        const chip = paymentChipStyles(b.color, theme);
+        const chip = paymentChipStyles(
+          b.color === "red" ? "gray" : (b.color as "green" | "gray" | "neutral"),
+          theme,
+        );
         return (
           <div
             key={b.id}
