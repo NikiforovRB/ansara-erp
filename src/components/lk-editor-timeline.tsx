@@ -86,32 +86,67 @@ export function uploadTimelineImageXHR(
   onProgress: (pct: number) => void,
 ): Promise<TimelineUploadResult> {
   return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", `/api/projects/${projectId}/timeline-upload`);
-    xhr.withCredentials = true;
-    // Big files can take a long time (upload + sharp + S3).
-    xhr.timeout = 20 * 60 * 1000; // 20 min
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) {
-        onProgress(Math.min(100, Math.round((100 * e.loaded) / e.total)));
-      }
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          resolve(JSON.parse(xhr.responseText) as TimelineUploadResult);
-        } catch {
-          reject(new Error("parse"));
+    void (async () => {
+      try {
+        // 1) Ask server for presigned PUT URL (tiny JSON -> no 413).
+        const initRes = await fetch(`/api/projects/${projectId}/timeline-upload-url`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ mime: file.type || "application/octet-stream" }),
+        });
+        if (!initRes.ok) {
+          reject(new Error(`${initRes.status}: ${await initRes.text()}`));
+          return;
         }
-      } else {
-        reject(new Error(`${xhr.status}: ${xhr.responseText || "upload_failed"}`));
+        const init = (await initRes.json()) as {
+          originalKey: string;
+          webpKey: string;
+          uploadUrl: string;
+        };
+
+        // 2) Upload original directly to S3 using presigned URL (track progress).
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", init.uploadUrl);
+        xhr.timeout = 30 * 60 * 1000; // 30 min
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable && e.total > 0) {
+            onProgress(Math.min(100, Math.round((100 * e.loaded) / e.total)));
+          }
+        };
+        xhr.onload = async () => {
+          if (xhr.status < 200 || xhr.status >= 300) {
+            reject(new Error(`${xhr.status}: ${xhr.responseText || "s3_upload_failed"}`));
+            return;
+          }
+          // 3) Finalize: server downloads from S3, generates webp, returns URLs.
+          const finRes = await fetch(
+            `/api/projects/${projectId}/timeline-upload-finalize`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({
+                originalKey: init.originalKey,
+                webpKey: init.webpKey,
+              }),
+            },
+          );
+          if (!finRes.ok) {
+            reject(new Error(`${finRes.status}: ${await finRes.text()}`));
+            return;
+          }
+          const out = (await finRes.json()) as TimelineUploadResult;
+          resolve(out);
+        };
+        xhr.onerror = () => reject(new Error("network"));
+        xhr.ontimeout = () => reject(new Error("timeout"));
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.send(file);
+      } catch (e) {
+        reject(e as Error);
       }
-    };
-    xhr.onerror = () => reject(new Error("network"));
-    xhr.ontimeout = () => reject(new Error("timeout"));
-    const fd = new FormData();
-    fd.set("file", file);
-    xhr.send(fd);
+    })();
   });
 }
 

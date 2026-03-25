@@ -54,6 +54,10 @@ import addDocumentBlack from "@/icons/add-document-black.svg";
 import addDocumentIcon from "@/icons/add-document.svg";
 import checkBlack from "@/icons/check-black.svg";
 import checkWhite from "@/icons/check-white.svg";
+import checkboxBlack from "@/icons/checkbox-black.svg";
+import checkboxIcon from "@/icons/checkbox.svg";
+import checkboxNav from "@/icons/checkbox-nav.svg";
+import checkboxComplete from "@/icons/checkboxcomplete.svg";
 import closeBlack from "@/icons/close-black.svg";
 import closeIcon from "@/icons/close.svg";
 import closeNav from "@/icons/close-nav.svg";
@@ -80,12 +84,12 @@ import docSerIcon from "@/icons/docser.svg";
 import docSerBlackIcon from "@/icons/docser-black.svg";
 import docGreenIcon from "@/icons/doc-green.svg";
 import docRedIcon from "@/icons/doc-red.svg";
+import redCloseIcon from "@/icons/redclose.svg";
 import oplataBlack from "@/icons/oplata-black.svg";
 import oplataIcon from "@/icons/oplata.svg";
 import oplataNav from "@/icons/oplata-nav.svg";
 import { paymentChipStyles } from "@/lib/payment-chip";
 import { roleLabel } from "@/lib/role-labels";
-import { xhrPostFormDataJsonWithProgress } from "@/lib/xhr-get-json";
 import { nanoid } from "nanoid";
 
 async function fetchJson(url: string, init?: RequestInit) {
@@ -888,13 +892,54 @@ export function DeadlineFormPanel({
     setCalendarPlanBusy(true);
     setCalendarPlanUploadingPct(0);
     try {
-      const form = new FormData();
-      form.set("file", file);
-      const res = await xhrPostFormDataJsonWithProgress<{
-        originalUrl: string;
-        webpUrl: string;
-      }>(`/api/projects/${projectId}/deadline-plan`, form, setCalendarPlanUploadingPct);
-      setCalendarPlanUrl(res.webpUrl || res.originalUrl);
+      // Presigned flow to avoid Vercel 413 for big files.
+      const initRes = await fetch(`/api/projects/${projectId}/deadline-plan-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ mime: file.type || "application/octet-stream" }),
+      });
+      if (!initRes.ok) throw new Error(`${initRes.status}: ${await initRes.text()}`);
+      const init = (await initRes.json()) as {
+        originalKey: string;
+        webpKey: string;
+        uploadUrl: string;
+      };
+
+      // Upload to S3 with progress.
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", init.uploadUrl);
+        xhr.timeout = 30 * 60 * 1000;
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable && e.total > 0) {
+            setCalendarPlanUploadingPct(
+              Math.min(100, Math.round((100 * e.loaded) / e.total)),
+            );
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error(`${xhr.status}: ${xhr.responseText || "s3_upload_failed"}`));
+        };
+        xhr.onerror = () => reject(new Error("network"));
+        xhr.ontimeout = () => reject(new Error("timeout"));
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.send(file);
+      });
+
+      const finRes = await fetch(`/api/projects/${projectId}/deadline-plan-finalize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          originalKey: init.originalKey,
+          webpKey: init.webpKey,
+        }),
+      });
+      if (!finRes.ok) throw new Error(`${finRes.status}: ${await finRes.text()}`);
+      const out = (await finRes.json()) as { originalUrl: string; webpUrl: string };
+      setCalendarPlanUrl(out.webpUrl || out.originalUrl);
     } catch {
       alert("Ошибка");
       setCalendarPlanUploadingPct(null);
@@ -1002,15 +1047,38 @@ export function DeadlineFormPanel({
         value={comment}
         onChange={(e) => setComment(e.target.value)}
       />
-      <label className="mt-3 inline-flex items-center gap-2 text-sm text-[var(--foreground)]">
-        <input
-          type="checkbox"
-          className="h-4 w-4"
-          checked={lkShowDeadline}
-          onChange={(e) => setLkShowDeadline(e.target.checked)}
-        />
-        Отображать дедлайн в редакторе ЛК
-      </label>
+      <button
+        type="button"
+        aria-pressed={lkShowDeadline}
+        onClick={() => setLkShowDeadline((v) => !v)}
+        className="group mt-3 inline-flex items-center gap-2 text-sm text-[var(--foreground)]"
+      >
+        <span className="relative h-[18px] w-[18px] shrink-0">
+          {lkShowDeadline ? (
+            <Image src={checkboxComplete} alt="" width={18} height={18} unoptimized />
+          ) : (
+            <>
+              <Image
+                src={theme === "dark" ? checkboxBlack : checkboxIcon}
+                alt=""
+                width={18}
+                height={18}
+                unoptimized
+                className="transition-opacity duration-150 group-hover:opacity-0"
+              />
+              <Image
+                src={checkboxNav}
+                alt=""
+                width={18}
+                height={18}
+                unoptimized
+                className="absolute left-0 top-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+              />
+            </>
+          )}
+        </span>
+        <span>Отображать дедлайн в редакторе ЛК</span>
+      </button>
 
       <div style={{ marginTop: calendarPlanUrl ? 10 : 100 }}>
         {!calendarPlanUrl ? (
@@ -1291,7 +1359,7 @@ export function PaymentsFormPanel({
             <button
               type="button"
               aria-label="Удалить документ"
-              className="absolute -right-0.5 -top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#F33737] shadow-sm"
+              className="absolute -right-1 -top-1 inline-flex h-5 w-5 items-center justify-center"
               onPointerDown={(e) => {
                 // Don't start dragging from the delete button.
                 e.stopPropagation();
@@ -1301,7 +1369,7 @@ export function PaymentsFormPanel({
                 setBlocks((prev) => prev.filter((x) => x.id !== item.id));
               }}
             >
-              <span className="text-[10px] leading-none text-white">×</span>
+              <Image src={redCloseIcon} alt="" width={18} height={18} unoptimized />
             </button>
           </button>
         </div>
@@ -1517,15 +1585,38 @@ export function PaymentsFormPanel({
           </span>
         </button>
       </div>
-      <label className="mt-3 inline-flex items-center gap-2 text-sm text-[var(--foreground)]">
-        <input
-          type="checkbox"
-          className="h-4 w-4"
-          checked={lkShowPayments}
-          onChange={(e) => setLkShowPayments(e.target.checked)}
-        />
-        Отображать в ЛК клиента
-      </label>
+      <button
+        type="button"
+        aria-pressed={lkShowPayments}
+        onClick={() => setLkShowPayments((v) => !v)}
+        className="group mt-3 inline-flex items-center gap-2 text-sm text-[var(--foreground)]"
+      >
+        <span className="relative h-[18px] w-[18px] shrink-0">
+          {lkShowPayments ? (
+            <Image src={checkboxComplete} alt="" width={18} height={18} unoptimized />
+          ) : (
+            <>
+              <Image
+                src={theme === "dark" ? checkboxBlack : checkboxIcon}
+                alt=""
+                width={18}
+                height={18}
+                unoptimized
+                className="transition-opacity duration-150 group-hover:opacity-0"
+              />
+              <Image
+                src={checkboxNav}
+                alt=""
+                width={18}
+                height={18}
+                unoptimized
+                className="absolute left-0 top-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+              />
+            </>
+          )}
+        </span>
+        <span>Отображать в ЛК клиента</span>
+      </button>
 
       <div className="mt-10">
         <h3 className="modal-section-title text-[var(--foreground)]">Поступившие оплаты</h3>
