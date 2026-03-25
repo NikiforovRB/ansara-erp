@@ -2734,6 +2734,7 @@ export function SettingsPanel({
       isActive: boolean;
       avatarKey: string | null;
       avatarUrl: string | null;
+      sortOrder: number;
     }[]
   >([]);
   const [userOrder, setUserOrder] = useState<string[]>([]);
@@ -2792,7 +2793,13 @@ export function SettingsPanel({
       const oi = prev.indexOf(String(active.id));
       const ni = prev.indexOf(String(over.id));
       if (oi < 0 || ni < 0) return prev;
-      return arrayMove(prev, oi, ni);
+      const next = arrayMove(prev, oi, ni);
+      void fetchJson("/api/users/order", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedIds: next }),
+      }).catch(() => null);
+      return next;
     });
   }
   const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);

@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -19,11 +19,14 @@ export async function GET(req: Request) {
       role: users.role,
       isActive: users.isActive,
       avatarKey: users.avatarKey,
+      sortOrder: users.sortOrder,
     })
     .from(users);
   const rows = includeAll
-    ? await base.orderBy(users.lastName, users.firstName)
-    : await base.where(eq(users.isActive, true)).orderBy(users.lastName, users.firstName);
+    ? await base.orderBy(users.sortOrder, users.lastName, users.firstName)
+    : await base
+        .where(eq(users.isActive, true))
+        .orderBy(users.sortOrder, users.lastName, users.firstName);
   return Response.json({
     users: rows.map((u) => ({
       ...u,
@@ -49,6 +52,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "Неверные данные" }, { status: 400 });
   }
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+  const [{ max }] = await db
+    .select({ max: sql<number>`coalesce(max(${users.sortOrder}), 0)::int`.mapWith(Number) })
+    .from(users);
   try {
     const [row] = await db
       .insert(users)
@@ -59,6 +65,7 @@ export async function POST(req: Request) {
         lastName: parsed.data.lastName,
         role: parsed.data.role,
         isActive: parsed.data.isActive,
+        sortOrder: (max ?? 0) + 1,
       })
       .returning({
         id: users.id,
@@ -68,6 +75,7 @@ export async function POST(req: Request) {
         role: users.role,
         isActive: users.isActive,
         avatarKey: users.avatarKey,
+        sortOrder: users.sortOrder,
       });
     return Response.json({ user: row });
   } catch {
