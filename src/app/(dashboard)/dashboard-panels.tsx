@@ -1110,7 +1110,7 @@ export function PaymentsFormPanel({
         <div
           ref={setNodeRef}
           style={style}
-          className="inline-flex h-8 w-8 items-center justify-center"
+          className="inline-flex h-8 w-8 -ml-2 -mr-1 items-center justify-center"
         >
           <button
             type="button"
@@ -2431,7 +2431,7 @@ export function LkEditorPanel({
                     return (
                       <div
                         key={b.id}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full"
+                        className="inline-flex h-8 w-8 -ml-2 -mr-1 items-center justify-center rounded-full"
                       >
                         <Image src={src} alt="" width={20} height={20} unoptimized />
                       </div>
