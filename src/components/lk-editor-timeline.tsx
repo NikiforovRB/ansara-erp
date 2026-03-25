@@ -89,6 +89,8 @@ export function uploadTimelineImageXHR(
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `/api/projects/${projectId}/timeline-upload`);
     xhr.withCredentials = true;
+    // Big files can take a long time (upload + sharp + S3).
+    xhr.timeout = 20 * 60 * 1000; // 20 min
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
         onProgress(Math.min(100, Math.round((100 * e.loaded) / e.total)));
@@ -102,10 +104,11 @@ export function uploadTimelineImageXHR(
           reject(new Error("parse"));
         }
       } else {
-        reject(new Error(xhr.responseText || String(xhr.status)));
+        reject(new Error(`${xhr.status}: ${xhr.responseText || "upload_failed"}`));
       }
     };
     xhr.onerror = () => reject(new Error("network"));
+    xhr.ontimeout = () => reject(new Error("timeout"));
     const fd = new FormData();
     fd.set("file", file);
     xhr.send(fd);
@@ -285,8 +288,9 @@ function TimelineEntryBlock({
         await runOne();
       };
       await Promise.all(Array.from({ length: Math.min(CONCURRENCY, arr.length) }, () => runOne()));
-    } catch {
-      alert("Загрузка не удалась");
+    } catch (e) {
+      const msg = (e as Error | null)?.message ?? "";
+      alert(msg ? `Загрузка не удалась: ${msg}` : "Загрузка не удалась");
       for (const u of blobUrls) {
         try {
           URL.revokeObjectURL(u);

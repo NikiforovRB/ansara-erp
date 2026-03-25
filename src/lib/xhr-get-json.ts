@@ -47,6 +47,7 @@ export function xhrPostFormDataJsonWithProgress<T>(
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url);
     xhr.withCredentials = true;
+    xhr.timeout = 20 * 60 * 1000; // 20 min
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && e.total > 0) {
@@ -78,6 +79,7 @@ export function xhrPostFormDataJsonWithProgress<T>(
       }
     };
     xhr.onerror = () => reject(new Error("network"));
+    xhr.ontimeout = () => reject(new Error("timeout"));
     xhr.send(form);
   });
 }

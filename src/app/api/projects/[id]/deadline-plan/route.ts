@@ -9,6 +9,9 @@ import { deleteObjectKey, getBucket, getS3Client, publicObjectUrl } from "@/lib/
 
 type Ctx = { params: Promise<{ id: string }> };
 
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
 const MAX_BYTES = 40 * 1024 * 1024;
 
 export async function POST(req: Request, ctx: Ctx) {
