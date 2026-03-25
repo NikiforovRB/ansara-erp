@@ -1186,6 +1186,128 @@ type BlockRow = {
   color: PaymentTextBlockState;
 };
 
+function cycleDocState(current: PaymentTextBlockState): PaymentTextBlockState {
+  // Doc icon has its own 3-state cycle: gray -> green -> red -> gray
+  if (current === "gray") return "green";
+  if (current === "green") return "red";
+  return "gray";
+}
+
+function PaymentBlocksSortableItem({
+  item,
+  theme,
+  closeSrc,
+  onDeleteItem,
+  onChangeBody,
+  onToggleChipColor,
+  onCycleDoc,
+  docIconSrc,
+}: {
+  item: BlockRow;
+  theme: "light" | "dark";
+  closeSrc: string;
+  onDeleteItem: () => void;
+  onChangeBody: (next: string) => void;
+  onToggleChipColor: () => void;
+  onCycleDoc: () => void;
+  docIconSrc: string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+  });
+
+  const style = {
+    transform: transform ? CSS.Transform.toString(transform) : undefined,
+    transition,
+    opacity: isDragging ? 0.85 : 1,
+  };
+
+  if (item.body == null) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="inline-flex h-8 w-8 -ml-2 -mr-1 items-center justify-center"
+      >
+        <button
+          type="button"
+          aria-label="Состояние документа"
+          className="relative h-8 w-8 cursor-grab rounded-full"
+          onClick={() => {
+            if (isDragging) return;
+            onCycleDoc();
+          }}
+          {...attributes}
+          {...listeners}
+        >
+          <Image src={docIconSrc} alt="" width={20} height={20} unoptimized />
+          <button
+            type="button"
+            aria-label="Удалить документ"
+            className="absolute -right-1 -top-1 inline-flex h-5 w-5 items-center justify-center"
+            onPointerDown={(e) => {
+              // Don't start dragging from the delete button.
+              e.stopPropagation();
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeleteItem();
+            }}
+          >
+            <Image src={redCloseIcon} alt="" width={18} height={18} unoptimized />
+          </button>
+        </button>
+      </div>
+    );
+  }
+
+  const hasText = Boolean(item.body?.trim());
+  const chip = paymentChipStyles(
+    item.color === "red" ? "gray" : (item.color as "green" | "gray" | "neutral"),
+    theme,
+  );
+
+  return (
+    <div ref={setNodeRef} style={style} className="inline-flex">
+      <div
+        className={`inline-flex h-8 w-[100px] items-center gap-1.5 rounded-full px-2 ${
+          hasText ? "justify-start" : "justify-center"
+        }`}
+        style={{
+          backgroundColor: chip.backgroundColor,
+          borderWidth: chip.borderColor ? 1 : 0,
+          borderStyle: chip.borderColor ? "solid" : "none",
+          borderColor: chip.borderColor ?? "transparent",
+        }}
+      >
+        <button
+          type="button"
+          className="h-3.5 w-3.5 shrink-0 rounded-full"
+          style={{ backgroundColor: item.color === "green" ? "#00B956" : "#8c8c8e" }}
+          aria-label="Цвет"
+          onClick={onToggleChipColor}
+        />
+        <input
+          type="text"
+          className="h-5 min-h-0 w-full min-w-0 border-0 bg-transparent py-0 text-xs leading-5 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          style={{ color: item.color === "green" ? "#00B956" : "#8c8c8e" }}
+          placeholder=" "
+          value={item.body ?? ""}
+          onChange={(e) => onChangeBody(e.target.value)}
+        />
+        <button
+          type="button"
+          className="shrink-0 opacity-70 hover:opacity-100"
+          aria-label="Удалить блок"
+          onClick={onDeleteItem}
+        >
+          <Image src={closeSrc} alt="" width={14} height={14} unoptimized />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function sortLedgerRows(rows: LedgerRow[]) {
   return [...rows].sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
 }
@@ -1302,13 +1424,6 @@ export function PaymentsFormPanel({
     }),
   );
 
-  function cycleDocState(current: PaymentTextBlockState): PaymentTextBlockState {
-    // Doc icon has its own 3-state cycle: gray -> green -> red -> gray
-    if (current === "gray") return "green";
-    if (current === "green") return "red";
-    return "gray";
-  }
-
   function onPaymentBlocksDragEnd(e: DragEndEvent) {
     const { active, over } = e;
     if (!over) return;
@@ -1325,126 +1440,6 @@ export function PaymentsFormPanel({
     if (color === "green") return docGreenIcon;
     if (color === "red") return docRedIcon;
     return theme === "dark" ? docSerBlackIcon : docSerIcon;
-  }
-
-  function PaymentSortableItem({ item }: { item: BlockRow }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-      id: item.id,
-    });
-
-    const style = {
-      transform: transform ? CSS.Transform.toString(transform) : undefined,
-      transition,
-      opacity: isDragging ? 0.85 : 1,
-    };
-
-    if (item.body == null) {
-      return (
-        <div
-          ref={setNodeRef}
-          style={style}
-          className="inline-flex h-8 w-8 -ml-2 -mr-1 items-center justify-center"
-        >
-          <button
-            type="button"
-            aria-label="Состояние документа"
-            className="relative h-8 w-8 cursor-grab rounded-full"
-            onClick={() => {
-              if (isDragging) return;
-              setBlocks((prev) =>
-                prev.map((x) =>
-                  x.id === item.id ? { ...x, color: cycleDocState(x.color) } : x,
-                ),
-              );
-            }}
-            {...attributes}
-            {...listeners}
-          >
-            <Image src={getDocIconSrc(item.color)} alt="" width={20} height={20} unoptimized />
-            <button
-              type="button"
-              aria-label="Удалить документ"
-              className="absolute -right-1 -top-1 inline-flex h-5 w-5 items-center justify-center"
-              onPointerDown={(e) => {
-                // Don't start dragging from the delete button.
-                e.stopPropagation();
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setBlocks((prev) => prev.filter((x) => x.id !== item.id));
-              }}
-            >
-              <Image src={redCloseIcon} alt="" width={18} height={18} unoptimized />
-            </button>
-          </button>
-        </div>
-      );
-    }
-
-    const hasText = Boolean(item.body?.trim());
-    const chip = paymentChipStyles(
-      item.color === "red" ? "gray" : (item.color as "green" | "gray" | "neutral"),
-      theme,
-    );
-
-    return (
-      <div ref={setNodeRef} style={style} className="inline-flex">
-        <div
-          className={`inline-flex h-8 w-[100px] items-center gap-1.5 rounded-full px-2 ${
-            hasText ? "justify-start" : "justify-center"
-          }`}
-          style={{
-            backgroundColor: chip.backgroundColor,
-            borderWidth: chip.borderColor ? 1 : 0,
-            borderStyle: chip.borderColor ? "solid" : "none",
-            borderColor: chip.borderColor ?? "transparent",
-          }}
-        >
-          <button
-            type="button"
-            className="h-3.5 w-3.5 shrink-0 rounded-full"
-            style={{ backgroundColor: item.color === "green" ? "#00B956" : "#8c8c8e" }}
-            aria-label="Цвет"
-            onClick={() => {
-              setBlocks((prev) =>
-                prev.map((x) =>
-                  x.id === item.id
-                    ? {
-                        ...x,
-                        color:
-                          x.color === "green"
-                            ? "gray"
-                            : x.color === "gray"
-                              ? "neutral"
-                              : "green",
-                      }
-                    : x,
-                ),
-              );
-            }}
-          />
-          <input
-            type="text"
-            className="h-5 min-h-0 w-full min-w-0 border-0 bg-transparent py-0 text-xs leading-5 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-            style={{ color: item.color === "green" ? "#00B956" : "#8c8c8e" }}
-            placeholder=" "
-            value={item.body ?? ""}
-            onChange={(e) => {
-              const v = e.target.value;
-              setBlocks((prev) => prev.map((x) => (x.id === item.id ? { ...x, body: v } : x)));
-            }}
-          />
-          <button
-            type="button"
-            className="shrink-0 opacity-70 hover:opacity-100"
-            aria-label="Удалить блок"
-            onClick={() => setBlocks((prev) => prev.filter((x) => x.id !== item.id))}
-          >
-            <Image src={closeSrc} alt="" width={14} height={14} unoptimized />
-          </button>
-        </div>
-      </div>
-    );
   }
 
   async function save() {
@@ -1525,7 +1520,43 @@ export function PaymentsFormPanel({
             strategy={horizontalListSortingStrategy}
           >
             {blocks.map((b) => (
-              <PaymentSortableItem key={b.id} item={b} />
+              <PaymentBlocksSortableItem
+                key={b.id}
+                item={b}
+                theme={theme}
+                closeSrc={closeSrc}
+                docIconSrc={getDocIconSrc(b.color)}
+                onDeleteItem={() => setBlocks((prev) => prev.filter((x) => x.id !== b.id))}
+                onCycleDoc={() =>
+                  setBlocks((prev) =>
+                    prev.map((x) =>
+                      x.id === b.id ? { ...x, color: cycleDocState(x.color) } : x,
+                    ),
+                  )
+                }
+                onToggleChipColor={() =>
+                  setBlocks((prev) =>
+                    prev.map((x) =>
+                      x.id === b.id
+                        ? {
+                            ...x,
+                            color:
+                              x.color === "green"
+                                ? "gray"
+                                : x.color === "gray"
+                                  ? "neutral"
+                                  : "green",
+                          }
+                        : x,
+                    ),
+                  )
+                }
+                onChangeBody={(next) =>
+                  setBlocks((prev) =>
+                    prev.map((x) => (x.id === b.id ? { ...x, body: next } : x)),
+                  )
+                }
+              />
             ))}
           </SortableContext>
         </DndContext>
