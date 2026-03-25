@@ -2479,18 +2479,45 @@ export function LkEditorPanel({
               <div className="mt-4 space-y-6">
                 {stages.map((st, si) => (
                   <div key={st.id}>
-                    <input
-                      className="w-full border-0 bg-transparent p-0 text-sm font-medium outline-none"
-                      placeholder="Заголовок этапа"
-                      value={st.title}
-                      onChange={(e) =>
-                        setStages((prev) =>
-                          prev.map((x, j) =>
-                            j === si ? { ...x, title: e.target.value } : x,
-                          ),
-                        )
-                      }
-                    />
+                    <div className="flex items-center gap-3">
+                      <input
+                        className="min-w-0 w-full flex-1 border-0 bg-transparent p-0 text-sm font-medium outline-none"
+                        placeholder="Заголовок этапа"
+                        value={st.title}
+                        onChange={(e) =>
+                          setStages((prev) =>
+                            prev.map((x, j) =>
+                              j === si ? { ...x, title: e.target.value } : x,
+                            ),
+                          )
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="group relative inline-flex h-8 w-8 shrink-0 items-center justify-center"
+                        aria-label="Удалить этап"
+                        onClick={() =>
+                          setStages((prev) => prev.filter((_, j) => j !== si))
+                        }
+                      >
+                        <Image
+                          src={theme === "dark" ? deleteBlack : deleteIcon}
+                          alt=""
+                          width={18}
+                          height={18}
+                          unoptimized
+                          className="transition-opacity duration-200 group-hover:opacity-0"
+                        />
+                        <Image
+                          src={deleteNav}
+                          alt=""
+                          width={18}
+                          height={18}
+                          unoptimized
+                          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                        />
+                      </button>
+                    </div>
                     <div className="mt-3">
                       <DndContext
                         sensors={stageSensors}
