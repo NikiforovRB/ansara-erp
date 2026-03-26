@@ -19,6 +19,7 @@ import docSerIcon from "@/icons/docser.svg";
 import docSerBlackIcon from "@/icons/docser-black.svg";
 import docGreenIcon from "@/icons/doc-green.svg";
 import docRedIcon from "@/icons/doc-red.svg";
+import docLoadIcon from "@/icons/doc-load.svg";
 import sunIcon from "@/icons/sun.svg";
 import sunNavIcon from "@/icons/sun-nav.svg";
 import closeBlack from "@/icons/close-black.svg";
@@ -66,7 +67,7 @@ type ApiPayload = {
     }[];
     payments: {
       ledger: { amountRubles: number }[];
-      textBlocks: { body: string | null; color: "green" | "gray" | "neutral" | "red" }[];
+      textBlocks: { body: string | null; color: "green" | "gray" | "neutral" | "red" | "load" }[];
     };
   };
 };
@@ -501,6 +502,8 @@ export function LkClient({ slug }: { slug: string }) {
                           ? docGreenIcon
                           : b.color === "red"
                             ? docRedIcon
+                            : b.color === "load"
+                              ? docLoadIcon
                             : theme === "dark"
                               ? docSerBlackIcon
                               : docSerIcon;

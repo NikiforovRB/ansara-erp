@@ -84,6 +84,7 @@ import docSerIcon from "@/icons/docser.svg";
 import docSerBlackIcon from "@/icons/docser-black.svg";
 import docGreenIcon from "@/icons/doc-green.svg";
 import docRedIcon from "@/icons/doc-red.svg";
+import docLoadIcon from "@/icons/doc-load.svg";
 import redCloseIcon from "@/icons/redclose.svg";
 import oplataBlack from "@/icons/oplata-black.svg";
 import oplataIcon from "@/icons/oplata.svg";
@@ -1179,7 +1180,7 @@ type DocRow = {
   linkTitle: string | null;
   comment: string | null;
 };
-type PaymentTextBlockState = "green" | "gray" | "neutral" | "red";
+type PaymentTextBlockState = "green" | "gray" | "neutral" | "red" | "load";
 type BlockRow = {
   id: string;
   body: string | null;
@@ -1187,9 +1188,10 @@ type BlockRow = {
 };
 
 function cycleDocState(current: PaymentTextBlockState): PaymentTextBlockState {
-  // Doc icon has its own 3-state cycle: gray -> green -> red -> gray
+  // Doc icon has its own 4-state cycle: gray -> green -> red -> load -> gray
   if (current === "gray") return "green";
   if (current === "green") return "red";
+  if (current === "red") return "load";
   return "gray";
 }
 
@@ -1456,6 +1458,7 @@ export function PaymentsFormPanel({
   function getDocIconSrc(color: PaymentTextBlockState) {
     if (color === "green") return docGreenIcon;
     if (color === "red") return docRedIcon;
+    if (color === "load") return docLoadIcon;
     return theme === "dark" ? docSerBlackIcon : docSerIcon;
   }
 

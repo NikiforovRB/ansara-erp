@@ -50,6 +50,7 @@ import docSerIcon from "@/icons/docser.svg";
 import docSerBlackIcon from "@/icons/docser-black.svg";
 import docGreenIcon from "@/icons/doc-green.svg";
 import docRedIcon from "@/icons/doc-red.svg";
+import docLoadIcon from "@/icons/doc-load.svg";
 import userDark from "@/icons/user.svg";
 import user1Icon from "@/icons/user1.svg";
 
@@ -75,7 +76,7 @@ export type ProjectRow = {
   } | null;
   paidRubles: number;
   latestTimelineEntryDate?: string | null;
-  paymentBlocks?: { id: string; body: string | null; color: "green" | "gray" | "neutral" | "red" }[];
+  paymentBlocks?: { id: string; body: string | null; color: "green" | "gray" | "neutral" | "red" | "load" }[];
   backlogPreview:
     | null
     | { variant: "all_completed" }
@@ -145,7 +146,7 @@ function LkActionButton({
 function PaymentBlocksPreview({
   blocks,
 }: {
-  blocks: { id: string; body: string | null; color: "green" | "gray" | "neutral" | "red" }[];
+  blocks: { id: string; body: string | null; color: "green" | "gray" | "neutral" | "red" | "load" }[];
 }) {
   const { theme } = useTheme();
   if (!blocks.length) return null;
@@ -158,6 +159,8 @@ function PaymentBlocksPreview({
               ? docGreenIcon
               : b.color === "red"
                 ? docRedIcon
+                : b.color === "load"
+                  ? docLoadIcon
                 : theme === "dark"
                   ? docSerBlackIcon
                   : docSerIcon;

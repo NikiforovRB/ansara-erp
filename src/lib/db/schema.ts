@@ -35,6 +35,7 @@ export const paymentTextColorEnum = pgEnum("payment_text_color", [
   "gray",
   "neutral",
   "red",
+  "load",
 ]);
 
 export const backlogListStatusEnum = pgEnum("backlog_list_status", [
