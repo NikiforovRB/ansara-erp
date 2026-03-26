@@ -2422,6 +2422,8 @@ export function LkEditorPanel({
   const [slider, setSlider] = useState<string[] | null>(null);
   const [sliderIdx, setSliderIdx] = useState(0);
   const [lkLoad, setLkLoad] = useState(false);
+  const initialTimelineRef = useRef<string>("");
+  const initialStagesRef = useRef<string>("");
 
   const activeDeadlineRef: RefObject<HTMLButtonElement | null> =
     deadlinePick === "start" ? startDateRef : endDateRef;
@@ -2435,6 +2437,37 @@ export function LkEditorPanel({
 
   const stageSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  );
+
+  const normalizeTimelineForSave = useCallback(
+    (list: TlEntryEditor[]) =>
+      sortTimelineDesc(list).map((e) => ({
+        id: e.id,
+        entryDate: e.entryDate,
+        title: e.title,
+        description: e.description ?? "",
+        images: e.images.map((im) => ({
+          originalKey: im.originalKey,
+          webpKey: im.webpKey,
+        })),
+        links: e.links.map((l) => ({ url: l.url, title: l.title })),
+      })),
+    [],
+  );
+
+  const normalizeStagesForSave = useCallback(
+    (list: StRow[]) =>
+      list.map((s) => ({
+        id: s.id,
+        title: s.title,
+        tasks: s.tasks.map((t) => ({
+          id: t.id,
+          description: t.description,
+          done: t.done,
+          completedAt: t.completedAt,
+        })),
+      })),
+    [],
   );
 
   function onStageTaskDragEnd(si: number) {
@@ -2501,6 +2534,7 @@ export function LkEditorPanel({
       }[]) {
         order.push(e.id);
         byEntry.set(e.id, {
+          id: e.id,
           clientKey: nanoid(),
           entryDate: e.entryDate.slice(0, 10),
           title: e.title,
@@ -2535,7 +2569,8 @@ export function LkEditorPanel({
         if (!ent) continue;
         ent.links.push({ url: ln.url, title: ln.linkTitle });
       }
-      setTimeline(sortTimelineDesc(order.map((id) => byEntry.get(id)!)));
+      const loadedTimeline = sortTimelineDesc(order.map((id) => byEntry.get(id)!));
+      setTimeline(loadedTimeline);
 
       const stOrder: string[] = [];
       const stMap = new Map<string, StRow>();
@@ -2544,6 +2579,7 @@ export function LkEditorPanel({
         stMap.set(s.id, { id: s.id, title: s.title, tasks: [] });
       }
       for (const t of j.stageTasks as {
+        id?: string;
         stageId: string;
         description: string;
         done: boolean;
@@ -2552,16 +2588,19 @@ export function LkEditorPanel({
         const st = stMap.get(t.stageId);
         if (!st) continue;
         st.tasks.push({
-          id: nanoid(),
+          id: String(t.id ?? nanoid()),
           description: t.description,
           done: t.done,
           completedAt: t.completedAt ? t.completedAt.slice(0, 10) : null,
         });
       }
-      setStages(stOrder.map((id) => stMap.get(id)!));
+      const loadedStages = stOrder.map((id) => stMap.get(id)!);
+      setStages(loadedStages);
+      initialTimelineRef.current = JSON.stringify(normalizeTimelineForSave(loadedTimeline));
+      initialStagesRef.current = JSON.stringify(normalizeStagesForSave(loadedStages));
       setLkLoad(false);
     })();
-  }, [open, projectId]);
+  }, [open, projectId, normalizeStagesForSave, normalizeTimelineForSave]);
 
   useLayoutEffect(() => {
     fitStagesCommentHeight();
@@ -2570,6 +2609,10 @@ export function LkEditorPanel({
   async function save() {
     setBusy(true);
     try {
+      const timelinePayload = normalizeTimelineForSave(timeline);
+      const stagesPayload = normalizeStagesForSave(stages);
+      const timelineChanged = JSON.stringify(timelinePayload) !== initialTimelineRef.current;
+      const stagesChanged = JSON.stringify(stagesPayload) !== initialStagesRef.current;
       await fetchJson(`/api/projects/${projectId}/lk`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -2584,24 +2627,8 @@ export function LkEditorPanel({
             endAt: end ? dateYmdToEndIso(end) : null,
             comment: dcomment || null,
           },
-          timeline: sortTimelineDesc(timeline).map((e) => ({
-            entryDate: e.entryDate,
-            title: e.title,
-            description: e.description ?? "",
-            images: e.images.map((im) => ({
-              originalKey: im.originalKey,
-              webpKey: im.webpKey,
-            })),
-            links: e.links.map((l) => ({ url: l.url, title: l.title })),
-          })),
-          stages: stages.map((s) => ({
-            title: s.title,
-            tasks: s.tasks.map((t) => ({
-              description: t.description,
-              done: t.done,
-              completedAt: t.completedAt,
-            })),
-          })),
+          ...(timelineChanged ? { timeline: timelinePayload } : {}),
+          ...(stagesChanged ? { stages: stagesPayload } : {}),
         }),
       });
       onSaved();

@@ -46,6 +46,7 @@ export type TlImgEditor = {
 };
 
 export type TlEntryEditor = {
+  id?: string;
   clientKey: string;
   entryDate: string;
   title: string;
