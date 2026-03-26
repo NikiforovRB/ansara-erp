@@ -11,6 +11,7 @@ import {
 
 const putSchema = z.object({
   remainingAmountRubles: z.number().int().min(0),
+  notes: z.string().optional().nullable(),
   textBlocks: z.array(
     z.object({
       body: z.string().optional().nullable(),
@@ -51,7 +52,7 @@ export async function PUT(req: Request, ctx: Ctx) {
   if (!parsed.success) {
     return Response.json({ error: "Неверные данные" }, { status: 400 });
   }
-  const { remainingAmountRubles, textBlocks, ledger, documents: docs } =
+  const { remainingAmountRubles, notes, textBlocks, ledger, documents: docs } =
     parsed.data;
   const ledgerSorted = [...ledger].sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
   const docsSorted = [...docs].sort((a, b) => b.docDate.localeCompare(a.docDate));
@@ -64,6 +65,7 @@ export async function PUT(req: Request, ctx: Ctx) {
       .update(projects)
       .set({
         remainingAmountRubles,
+        paymentsNotes: notes ?? null,
         ...(typeof lkShowPayments === "boolean" ? { lkShowPayments } : {}),
         updatedAt: new Date(),
       })

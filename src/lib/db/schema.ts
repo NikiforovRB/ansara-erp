@@ -76,6 +76,7 @@ export const projects = pgTable(
     lkShowDeadline: boolean("lk_show_deadline").notNull().default(true),
     lkShowPayments: boolean("lk_show_payments").notNull().default(true),
     lkStagesComment: text("lk_stages_comment"),
+    paymentsNotes: text("payments_notes"),
     remainingAmountRubles: integer("remaining_amount_rubles").notNull().default(0),
     dashboardSortOrder: integer("dashboard_sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })

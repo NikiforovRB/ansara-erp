@@ -1333,6 +1333,15 @@ export function PaymentsFormPanel({
   const [blocks, setBlocks] = useState<BlockRow[]>([]);
   const [lkShowPayments, setLkShowPayments] = useState(true);
   const [customerName, setCustomerName] = useState("");
+  const [notes, setNotes] = useState("");
+  const [notesEditing, setNotesEditing] = useState(false);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+  const fitNotesHeight = useCallback(() => {
+    const el = notesRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.max(72, el.scrollHeight)}px`;
+  }, []);
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [busy, setBusy] = useState(false);
@@ -1353,6 +1362,8 @@ export function PaymentsFormPanel({
       }
       const rem = j.project.remainingAmountRubles ?? 0;
       setCustomerName(j.project.customerName ?? "");
+      setNotes(String(j.project.paymentsNotes ?? ""));
+      setNotesEditing(false);
       setRemaining(rem);
       setRemStr(formatThousandsRub(rem));
       setBlocks(
@@ -1392,6 +1403,12 @@ export function PaymentsFormPanel({
       setFetching(false);
     })();
   }, [open, projectId]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    if (!notesEditing) return;
+    fitNotesHeight();
+  }, [open, notesEditing, notes, fitNotesHeight]);
 
   useEffect(() => {
     if (!open) return;
@@ -1458,6 +1475,7 @@ export function PaymentsFormPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           remainingAmountRubles: remaining,
+          notes: notes.trim() ? notes : null,
           textBlocks: blocks,
           lkShowPayments,
           ledger,
@@ -2021,6 +2039,35 @@ export function PaymentsFormPanel({
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="mt-[50px]">
+        <div className="text-xs text-[var(--muted)]">Заметки</div>
+        {!notesEditing ? (
+          <button
+            type="button"
+            className="mt-2 w-full whitespace-pre-wrap break-words text-left text-sm text-[var(--foreground)]"
+            style={{ color: notes.trim() ? "var(--foreground)" : "var(--muted)" }}
+            onClick={() => {
+              setNotesEditing(true);
+              window.setTimeout(() => notesRef.current?.focus(), 0);
+            }}
+          >
+            {notes.trim() ? notes : "Добавить заметки"}
+          </button>
+        ) : (
+          <textarea
+            ref={notesRef}
+            rows={1}
+            className="mt-2 w-full resize-none overflow-hidden rounded-lg bg-transparent px-0 py-0 text-sm text-[var(--foreground)] outline-none"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            onBlur={() => {
+              if (!notes.trim()) setNotesEditing(false);
+              else setNotesEditing(false);
+            }}
+          />
+        )}
       </div>
     </RightPanel>
   );
