@@ -409,7 +409,7 @@ function SortableProjectRow({
             onClick={onLk}
           />
           {latestInfo ? (
-            <span className="ml-[10px] text-[10px] leading-none" style={{ color: latestInfo.color }}>
+            <span className="ml-[10px] text-[11px] leading-none" style={{ color: latestInfo.color }}>
               {latestInfo.text}
             </span>
           ) : null}
