@@ -150,7 +150,7 @@ function PaymentBlocksPreview({
   const { theme } = useTheme();
   if (!blocks.length) return null;
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-1">
       {blocks.map((b) => {
         if (b.body == null) {
           const src =
@@ -164,7 +164,7 @@ function PaymentBlocksPreview({
           return (
             <div
               key={b.id}
-              className="inline-flex h-8 w-8 -ml-2 -mr-1 items-center justify-center rounded-full"
+              className="inline-flex h-8 w-8 -ml-1 -mr-0.5 items-center justify-center rounded-full"
             >
               <Image src={src} alt="" width={20} height={20} unoptimized />
             </div>
@@ -446,7 +446,7 @@ function SortableProjectRow({
         ) : null}
       </div>
       <div
-        className={`flex min-h-[70px] max-w-[300px] flex-col items-stretch gap-[9px] ${cellHover} cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5A86EE]`}
+        className={`flex min-h-[70px] max-w-[400px] flex-col items-stretch gap-[9px] ${cellHover} cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5A86EE]`}
         role="button"
         tabIndex={0}
         onClick={onPayments}

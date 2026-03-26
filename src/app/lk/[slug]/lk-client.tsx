@@ -493,7 +493,7 @@ export function LkClient({ slug }: { slug: string }) {
                 <div className="mt-4 w-full">
                   <PaymentBlock paidRubles={paid} remainingRubles={remaining} lkView />
                 </div>
-                <div className="mt-[7px] flex flex-wrap items-center gap-2">
+                <div className="mt-[7px] flex flex-wrap items-center gap-1">
                   {full.payments.textBlocks.map((b, i) => {
                     if (b.body == null) {
                       const src =
@@ -507,7 +507,7 @@ export function LkClient({ slug }: { slug: string }) {
                       return (
                         <div
                           key={i}
-                          className="inline-flex h-8 w-8 -ml-2 -mr-1 items-center justify-center rounded-full"
+                          className="inline-flex h-8 w-8 -ml-1 -mr-0.5 items-center justify-center rounded-full"
                         >
                           <Image src={src} alt="" width={20} height={20} unoptimized />
                         </div>

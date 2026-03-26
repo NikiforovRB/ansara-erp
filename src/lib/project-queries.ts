@@ -70,9 +70,8 @@ export async function listProjectsWithMeta(status: ProjectStatusFilter) {
   for (const b of payBlocks) {
     if (!blocksByProject.has(b.projectId)) blocksByProject.set(b.projectId, []);
     const arr = blocksByProject.get(b.projectId)!;
-    const textCount = arr.filter((x) => x.body != null).length;
-    // Always include the "document icon" row (body == null) in previews.
-    if (b.body == null || textCount < 4) arr.push(b);
+    // For the dashboard table we need to show all blocks/icons.
+    arr.push(b);
   }
 
   const latestTimelineRows = await db

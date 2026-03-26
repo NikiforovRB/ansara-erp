@@ -1227,7 +1227,7 @@ function PaymentBlocksSortableItem({
       <div
         ref={setNodeRef}
         style={style}
-        className="inline-flex h-8 w-8 -ml-2 -mr-1 items-center justify-center"
+        className="inline-flex h-8 w-8 -ml-1 -mr-0.5 items-center justify-center"
       >
         <button
           type="button"
@@ -1509,7 +1509,7 @@ export function PaymentsFormPanel({
         </div>
       </div>
 
-      <div className="mt-8 flex flex-wrap items-center gap-2">
+      <div className="mt-8 flex flex-wrap items-center gap-1">
         <DndContext
           sensors={paymentSensors}
           collisionDetection={closestCenter}
@@ -1655,7 +1655,47 @@ export function PaymentsFormPanel({
       </button>
 
       <div className="mt-10">
-        <h3 className="modal-section-title text-[var(--foreground)]">Поступившие оплаты</h3>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="modal-section-title text-[var(--foreground)]">Поступившие оплаты</h3>
+          <button
+            type="button"
+            className={`group inline-flex items-center gap-2 text-sm ${mutedAction}`}
+            onClick={() => {
+              setLedger((r) => {
+                const next = [
+                  {
+                    amountRubles: 0,
+                    paymentDate: new Date().toISOString().slice(0, 10),
+                    comment: "",
+                  },
+                  ...r,
+                ];
+                setEditLedger(0);
+                return next;
+              });
+            }}
+          >
+            <span className="relative h-5 w-5 shrink-0">
+              <Image
+                src={theme === "dark" ? oplataBlack : oplataIcon}
+                alt=""
+                width={20}
+                height={20}
+                unoptimized
+                className="transition-opacity duration-200 group-hover:opacity-0"
+              />
+              <Image
+                src={oplataNav}
+                alt=""
+                width={20}
+                height={20}
+                unoptimized
+                className="absolute left-0 top-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              />
+            </span>
+            Добавить оплату
+          </button>
+        </div>
         <div className="mt-2 h-px w-full" style={{ backgroundColor: lineRule }} />
         <div className="mt-px w-full overflow-x-auto">
           <table className="w-full table-fixed border-collapse text-sm">
@@ -1674,10 +1714,8 @@ export function PaymentsFormPanel({
                                   value={row.paymentDate}
                                   onChange={(v) =>
                                     setLedger((prev) =>
-                                      sortLedgerRows(
-                                        prev.map((x, j) =>
-                                          j === i ? { ...x, paymentDate: v } : x,
-                                        ),
+                                      prev.map((x, j) =>
+                                        j === i ? { ...x, paymentDate: v } : x,
                                       ),
                                     )
                                   }
@@ -1733,7 +1771,10 @@ export function PaymentsFormPanel({
                             <button
                               type="button"
                               className="text-sm text-[var(--muted)] underline"
-                              onClick={() => setEditLedger(null)}
+                              onClick={() => {
+                                setLedger((prev) => sortLedgerRows(prev));
+                                setEditLedger(null);
+                              }}
                             >
                               Готово
                             </button>
@@ -1751,10 +1792,10 @@ export function PaymentsFormPanel({
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 py-2">
-                          <div className="w-[200px] shrink-0 text-[var(--foreground)]">
+                          <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
                             {formatRuDayMonthWeekday(row.paymentDate)}
                           </div>
-                          <div className="w-[200px] shrink-0 text-[var(--foreground)]">
+                          <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
                             {formatThousandsRub(row.amountRubles)} ₽
                           </div>
                           <div className="min-w-0 flex-1 truncate text-[var(--foreground)]">
@@ -1790,48 +1831,51 @@ export function PaymentsFormPanel({
             </tbody>
           </table>
         </div>
-        <button
-          type="button"
-          className={`group mt-3 inline-flex items-center gap-2 text-sm ${mutedAction}`}
-          onClick={() => {
-            setLedger((r) => {
-              const next = [
-                ...r,
-                {
-                  amountRubles: 0,
-                  paymentDate: new Date().toISOString().slice(0, 10),
-                  comment: "",
-                },
-              ];
-              setEditLedger(next.length - 1);
-              return sortLedgerRows(next);
-            });
-          }}
-        >
-          <span className="relative h-5 w-5 shrink-0">
-            <Image
-              src={theme === "dark" ? oplataBlack : oplataIcon}
-              alt=""
-              width={20}
-              height={20}
-              unoptimized
-              className="transition-opacity duration-200 group-hover:opacity-0"
-            />
-            <Image
-              src={oplataNav}
-              alt=""
-              width={20}
-              height={20}
-              unoptimized
-              className="absolute left-0 top-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-            />
-          </span>
-          Добавить оплату
-        </button>
       </div>
 
       <div className="mt-10">
-        <h3 className="modal-section-title text-[var(--foreground)]">Документы</h3>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="modal-section-title text-[var(--foreground)]">Документы</h3>
+          <button
+            type="button"
+            className={`group inline-flex items-center gap-2 text-sm ${mutedAction}`}
+            onClick={() => {
+              setDocs((d) => {
+                const next = [
+                  {
+                    docDate: new Date().toISOString().slice(0, 10),
+                    url: "",
+                    linkTitle: null,
+                    comment: "",
+                  },
+                  ...d,
+                ];
+                setEditDoc(0);
+                return next;
+              });
+            }}
+          >
+            <span className="relative h-5 w-5 shrink-0">
+              <Image
+                src={theme === "dark" ? addDocumentBlack : addDocumentIcon}
+                alt=""
+                width={20}
+                height={20}
+                unoptimized
+                className="transition-opacity duration-200 group-hover:opacity-0"
+              />
+              <Image
+                src={addDocumentNav}
+                alt=""
+                width={20}
+                height={20}
+                unoptimized
+                className="absolute left-0 top-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              />
+            </span>
+            Добавить документ
+          </button>
+        </div>
         <div className="mt-2 h-px w-full" style={{ backgroundColor: lineRule }} />
         <div className="mt-px w-full overflow-x-auto">
           <table className="w-full table-fixed border-collapse text-sm">
@@ -1849,9 +1893,7 @@ export function PaymentsFormPanel({
                                 value={row.docDate}
                                 onChange={(v) =>
                                   setDocs((prev) =>
-                                    sortDocRows(
-                                      prev.map((x, j) => (j === i ? { ...x, docDate: v } : x)),
-                                    ),
+                                    prev.map((x, j) => (j === i ? { ...x, docDate: v } : x)),
                                   )
                                 }
                                 className={fieldClass("w-full text-left")}
@@ -1907,7 +1949,10 @@ export function PaymentsFormPanel({
                             <button
                               type="button"
                               className="text-sm text-[var(--muted)] underline"
-                              onClick={() => setEditDoc(null)}
+                              onClick={() => {
+                                setDocs((prev) => sortDocRows(prev));
+                                setEditDoc(null);
+                              }}
                             >
                               Готово
                             </button>
@@ -1925,7 +1970,7 @@ export function PaymentsFormPanel({
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 py-2">
-                          <div className="w-[200px] shrink-0 text-[var(--foreground)]">
+                          <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
                             {formatRuDayMonthWeekday(row.docDate)}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -1976,45 +2021,6 @@ export function PaymentsFormPanel({
             </tbody>
           </table>
         </div>
-        <button
-          type="button"
-          className={`group mt-3 inline-flex items-center gap-2 text-sm ${mutedAction}`}
-          onClick={() => {
-            setDocs((d) => {
-              const next = [
-                ...d,
-                {
-                  docDate: new Date().toISOString().slice(0, 10),
-                  url: "",
-                  linkTitle: null,
-                  comment: "",
-                },
-              ];
-              setEditDoc(next.length - 1);
-              return sortDocRows(next);
-            });
-          }}
-        >
-          <span className="relative h-5 w-5 shrink-0">
-            <Image
-              src={theme === "dark" ? addDocumentBlack : addDocumentIcon}
-              alt=""
-              width={20}
-              height={20}
-              unoptimized
-              className="transition-opacity duration-200 group-hover:opacity-0"
-            />
-            <Image
-              src={addDocumentNav}
-              alt=""
-              width={20}
-              height={20}
-              unoptimized
-              className="absolute left-0 top-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-            />
-          </span>
-          Добавить документ
-        </button>
       </div>
     </RightPanel>
   );
@@ -2743,7 +2749,7 @@ export function LkEditorPanel({
               <div className="mt-2 w-full min-w-0">
                 <PaymentBlock paidRubles={paid} remainingRubles={remaining} />
               </div>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-wrap gap-1">
                 {payBlocks.map((b) => {
                   if (b.body == null) {
                     const src =
@@ -2757,7 +2763,7 @@ export function LkEditorPanel({
                     return (
                       <div
                         key={b.id}
-                        className="inline-flex h-8 w-8 -ml-2 -mr-1 items-center justify-center rounded-full"
+                        className="inline-flex h-8 w-8 -ml-1 -mr-0.5 items-center justify-center rounded-full"
                       >
                         <Image src={src} alt="" width={20} height={20} unoptimized />
                       </div>
