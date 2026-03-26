@@ -854,8 +854,10 @@ export function DeadlineFormPanel({
     el.style.height = `${Math.max(36, el.scrollHeight)}px`;
   }, []);
   const [calendarPlanUrl, setCalendarPlanUrl] = useState<string | null>(null);
+  const [calendarPlanOriginalUrl, setCalendarPlanOriginalUrl] = useState<string | null>(null);
   const [calendarPlanUploadingPct, setCalendarPlanUploadingPct] = useState<number | null>(null);
   const [calendarPlanBusy, setCalendarPlanBusy] = useState(false);
+  const [calendarPlanFullscreen, setCalendarPlanFullscreen] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [busy, setBusy] = useState(false);
   const [fetching, setFetching] = useState(false);
@@ -879,8 +881,13 @@ export function DeadlineFormPanel({
             ?.calendarPlanOriginalUrl ??
           null,
       );
+      setCalendarPlanOriginalUrl(
+        (dl as { calendarPlanWebpUrl?: string | null; calendarPlanOriginalUrl?: string | null })
+          ?.calendarPlanOriginalUrl ?? null,
+      );
       setCalendarPlanUploadingPct(null);
       setCalendarPlanBusy(false);
+      setCalendarPlanFullscreen(false);
       setFetching(false);
     })();
   }, [open, projectId]);
@@ -946,6 +953,7 @@ export function DeadlineFormPanel({
       if (!finRes.ok) throw new Error(`${finRes.status}: ${await finRes.text()}`);
       const out = (await finRes.json()) as { originalUrl: string; webpUrl: string };
       setCalendarPlanUrl(out.webpUrl || out.originalUrl);
+      setCalendarPlanOriginalUrl(out.originalUrl || null);
     } catch {
       alert("Ошибка");
       setCalendarPlanUploadingPct(null);
@@ -962,6 +970,8 @@ export function DeadlineFormPanel({
         method: "DELETE",
       });
       setCalendarPlanUrl(null);
+      setCalendarPlanOriginalUrl(null);
+      setCalendarPlanFullscreen(false);
     } catch {
       alert("Ошибка");
     } finally {
@@ -1127,12 +1137,19 @@ export function DeadlineFormPanel({
           </label>
         ) : (
           <div className="relative w-full max-w-[500px] overflow-hidden rounded-lg border border-[var(--foreground)]/15">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={calendarPlanUrl}
-              alt=""
-              className="block h-auto w-full"
-            />
+            <button
+              type="button"
+              aria-label="Открыть изображение на весь экран"
+              className="block w-full cursor-zoom-in"
+              onClick={() => setCalendarPlanFullscreen(true)}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={calendarPlanUrl}
+                alt=""
+                className="block h-auto w-full"
+              />
+            </button>
             <button
               type="button"
               aria-label="Удалить изображение"
@@ -1165,6 +1182,38 @@ export function DeadlineFormPanel({
           </div>
         ) : null}
       </div>
+      {calendarPlanFullscreen && (calendarPlanOriginalUrl || calendarPlanUrl) ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 p-4"
+          role="presentation"
+          onClick={() => setCalendarPlanFullscreen(false)}
+        >
+          <button
+            type="button"
+            aria-label="Закрыть просмотр"
+            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95"
+            onClick={(e) => {
+              e.stopPropagation();
+              setCalendarPlanFullscreen(false);
+            }}
+          >
+            <Image
+              src={theme === "dark" ? closeBlack : closeIcon}
+              alt=""
+              width={16}
+              height={16}
+              unoptimized
+            />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={calendarPlanOriginalUrl || calendarPlanUrl || ""}
+            alt=""
+            className="max-h-[92vh] max-w-[96vw] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      ) : null}
     </RightPanel>
   );
 }
