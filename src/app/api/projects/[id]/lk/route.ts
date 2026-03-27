@@ -68,6 +68,37 @@ const putSchema = z.object({
   stagesComment: z.string().optional().nullable(),
   timeline: timelineSchema.optional(),
   stages: stagesSchema.optional(),
+  timelineDelta: z
+    .object({
+      deletes: z.array(z.string()).default([]),
+      upserts: timelineSchema.default([]),
+    })
+    .optional(),
+  stagesDelta: z
+    .object({
+      deletes: z.array(z.string()).default([]),
+      upserts: z.array(
+        z.object({
+          id: z.string().optional(),
+          title: z.string().min(1),
+          sortOrder: z.number().int().min(0),
+          taskDeletes: z.array(z.string()).default([]),
+          taskUpserts: z.array(
+            z.object({
+              id: z.string().optional(),
+              description: z.string().min(1),
+              done: z.boolean(),
+              completedAt: z
+                .union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.literal(""), z.null()])
+                .optional()
+                .transform((v) => (v === "" || v === undefined ? null : v)),
+              sortOrder: z.number().int().min(0),
+            }),
+          ),
+        }),
+      ),
+    })
+    .optional(),
 });
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -102,6 +133,8 @@ export async function PUT(req: Request, ctx: Ctx) {
     deadline,
     timeline,
     stages: stagePayload,
+    timelineDelta,
+    stagesDelta,
     stagesComment,
   } = parsed.data;
 
@@ -137,7 +170,72 @@ export async function PUT(req: Request, ctx: Ctx) {
           },
         });
 
-      if (timeline) {
+      if (timelineDelta) {
+        const existingEntries = await tx
+          .select({
+            id: timelineEntries.id,
+            entryDate: timelineEntries.entryDate,
+            title: timelineEntries.title,
+            description: timelineEntries.description,
+          })
+          .from(timelineEntries)
+          .where(eq(timelineEntries.projectId, id));
+        const existingEntryIds = new Set(existingEntries.map((r) => r.id));
+        const safeDeleteIds = timelineDelta.deletes.filter((x) => existingEntryIds.has(x));
+        if (safeDeleteIds.length) {
+          await tx.delete(timelineEntries).where(inArray(timelineEntries.id, safeDeleteIds));
+        }
+        for (const row of timelineDelta.upserts) {
+          const incomingId = row.id && existingEntryIds.has(row.id) ? row.id : null;
+          let entryId = incomingId;
+          if (incomingId) {
+            await tx
+              .update(timelineEntries)
+              .set({
+                entryDate: row.entryDate,
+                title: row.title,
+                description: row.description ?? "",
+              })
+              .where(eq(timelineEntries.id, incomingId));
+          } else {
+            const [inserted] = await tx
+              .insert(timelineEntries)
+              .values({
+                projectId: id,
+                entryDate: row.entryDate,
+                title: row.title,
+                description: row.description ?? "",
+                sortOrder: 0,
+              })
+              .returning({ id: timelineEntries.id });
+            entryId = inserted?.id ?? null;
+          }
+          if (entryId) {
+            await tx.delete(timelineImages).where(eq(timelineImages.entryId, entryId));
+            await tx.delete(timelineLinks).where(eq(timelineLinks.entryId, entryId));
+            if (row.images.length) {
+              await tx.insert(timelineImages).values(
+                row.images.map((im, j) => ({
+                  entryId,
+                  originalKey: im.originalKey,
+                  webpKey: im.webpKey,
+                  sortOrder: j,
+                })),
+              );
+            }
+            if (row.links.length) {
+              await tx.insert(timelineLinks).values(
+                row.links.map((ln, j) => ({
+                  entryId,
+                  url: ln.url,
+                  linkTitle: ln.title,
+                  sortOrder: j,
+                })),
+              );
+            }
+          }
+        }
+      } else if (timeline) {
         const existingEntries = await tx
           .select({
             id: timelineEntries.id,
@@ -293,7 +391,66 @@ export async function PUT(req: Request, ctx: Ctx) {
         }
       }
 
-      if (stagePayload) {
+      if (stagesDelta) {
+        const existingStages = await tx
+          .select({ id: stages.id })
+          .from(stages)
+          .where(eq(stages.projectId, id));
+        const existingStageIds = new Set(existingStages.map((r) => r.id));
+        const safeStageDeleteIds = stagesDelta.deletes.filter((x) => existingStageIds.has(x));
+        if (safeStageDeleteIds.length) {
+          await tx.delete(stages).where(inArray(stages.id, safeStageDeleteIds));
+        }
+
+        for (const st of stagesDelta.upserts) {
+          const incomingStageId = st.id && existingStageIds.has(st.id) ? st.id : null;
+          let stageId = incomingStageId;
+          if (incomingStageId) {
+            await tx
+              .update(stages)
+              .set({ title: st.title, sortOrder: st.sortOrder })
+              .where(eq(stages.id, incomingStageId));
+          } else {
+            const [inserted] = await tx
+              .insert(stages)
+              .values({ projectId: id, title: st.title, sortOrder: st.sortOrder })
+              .returning({ id: stages.id });
+            stageId = inserted?.id ?? null;
+          }
+          if (!stageId) continue;
+          const existingTasksForStage = await tx
+            .select({ id: stageTasks.id })
+            .from(stageTasks)
+            .where(eq(stageTasks.stageId, stageId));
+          const existingTaskIds = new Set(existingTasksForStage.map((r) => r.id));
+          const safeTaskDeleteIds = st.taskDeletes.filter((x) => existingTaskIds.has(x));
+          if (safeTaskDeleteIds.length) {
+            await tx.delete(stageTasks).where(inArray(stageTasks.id, safeTaskDeleteIds));
+          }
+          for (const task of st.taskUpserts) {
+            const incomingTaskId = task.id && existingTaskIds.has(task.id) ? task.id : null;
+            if (incomingTaskId) {
+              await tx
+                .update(stageTasks)
+                .set({
+                  description: task.description,
+                  done: task.done,
+                  completedAt: task.completedAt ?? null,
+                  sortOrder: task.sortOrder,
+                })
+                .where(eq(stageTasks.id, incomingTaskId));
+            } else {
+              await tx.insert(stageTasks).values({
+                stageId,
+                description: task.description,
+                done: task.done,
+                completedAt: task.completedAt ?? null,
+                sortOrder: task.sortOrder,
+              });
+            }
+          }
+        }
+      } else if (stagePayload) {
         const existingStages = await tx
           .select({ id: stages.id, title: stages.title, sortOrder: stages.sortOrder })
           .from(stages)

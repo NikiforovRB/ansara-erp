@@ -2527,6 +2527,41 @@ export function LkEditorPanel({
     [],
   );
 
+  const isSameTimelineItem = useCallback(
+    (
+      a: {
+        id?: string;
+        entryDate: string;
+        title: string;
+        description: string;
+        images: { originalKey: string; webpKey: string }[];
+        links: { url: string; title: string }[];
+      },
+      b: {
+        id?: string;
+        entryDate: string;
+        title: string;
+        description: string;
+        images: { originalKey: string; webpKey: string }[];
+        links: { url: string; title: string }[];
+      },
+    ) =>
+      a.entryDate === b.entryDate &&
+      a.title === b.title &&
+      a.description === b.description &&
+      JSON.stringify(a.images) === JSON.stringify(b.images) &&
+      JSON.stringify(a.links) === JSON.stringify(b.links),
+    [],
+  );
+
+  const isSameStageTask = useCallback(
+    (
+      a: { description: string; done: boolean; completedAt: string | null },
+      b: { description: string; done: boolean; completedAt: string | null },
+    ) => a.description === b.description && a.done === b.done && a.completedAt === b.completedAt,
+    [],
+  );
+
   const toTimelineEditors = useCallback(
     (
       entries: { id: string; entryDate: string; title: string; description?: string | null }[],
@@ -2702,6 +2737,23 @@ export function LkEditorPanel({
         (j.links ?? []) as { entryId: string; url: string; linkTitle: string }[],
       );
       setTimeline((prev) => [...prev, ...nextChunk]);
+      const initialTimeline = (
+        JSON.parse(initialTimelineRef.current || "[]") as {
+          id?: string;
+          entryDate: string;
+          title: string;
+          description: string;
+          images: { originalKey: string; webpKey: string }[];
+          links: { url: string; title: string }[];
+        }[]
+      ).slice();
+      const normalizedChunk = normalizeTimelineForSave(nextChunk);
+      const existingIds = new Set(initialTimeline.map((x) => x.id).filter((x): x is string => Boolean(x)));
+      for (const e of normalizedChunk) {
+        if (e.id && existingIds.has(e.id)) continue;
+        initialTimeline.push(e);
+      }
+      initialTimelineRef.current = JSON.stringify(initialTimeline);
       setTimelineLoadedCount((v) => v + nextChunk.length);
       setTimelineHasMore(Boolean(j.hasMore));
     } finally {
@@ -2716,49 +2768,142 @@ export function LkEditorPanel({
   async function save() {
     setBusy(true);
     try {
-      const quickTimelineChanged =
-        JSON.stringify(normalizeTimelineForSave(timeline)) !== initialTimelineRef.current;
-      let completeTimeline = timeline;
-      if (quickTimelineChanged && timelineHasMore) {
-        let hasMore: boolean = true;
-        let offset = timelineLoadedCount;
-        while (hasMore) {
-          const j = await fetchJson(`/api/projects/${projectId}/timeline?limit=50&offset=${offset}`);
-          const chunk = toTimelineEditors(
-            (j.entries ?? []) as {
-              id: string;
-              entryDate: string;
-              title: string;
-              description?: string | null;
-            }[],
-            (j.images ?? []) as {
-              entryId: string;
-              originalKey: string;
-              webpKey: string;
-              webpUrl?: string | null;
-              originalUrl?: string | null;
-            }[],
-            (j.links ?? []) as { entryId: string; url: string; linkTitle: string }[],
-          );
-          const existingIds = new Set(
-            completeTimeline.map((x) => x.id).filter((x): x is string => Boolean(x)),
-          );
-          for (const e of chunk) {
-            if (e.id && existingIds.has(e.id)) continue;
-            completeTimeline = [...completeTimeline, e];
-          }
-          offset += chunk.length;
-          hasMore = Boolean(j.hasMore);
-        }
-        setTimeline(sortTimelineDesc(completeTimeline));
-        setTimelineLoadedCount(offset);
-        setTimelineHasMore(false);
-      }
+      const timelinePayload = normalizeTimelineForSave(timeline);
+      const initialTimelinePayload = JSON.parse(initialTimelineRef.current || "[]") as {
+        id?: string;
+        entryDate: string;
+        title: string;
+        description: string;
+        images: { originalKey: string; webpKey: string }[];
+        links: { url: string; title: string }[];
+      }[];
+      const initialTimelineById = new Map(
+        initialTimelinePayload
+          .filter((x) => Boolean(x.id))
+          .map((x) => [x.id as string, x]),
+      );
+      const currentTimelineIds = new Set(
+        timelinePayload.map((x) => x.id).filter((x): x is string => Boolean(x)),
+      );
+      const timelineDeletes = initialTimelinePayload
+        .map((x) => x.id)
+        .filter((id): id is string => Boolean(id))
+        .filter((id) => !currentTimelineIds.has(id));
+      const timelineUpserts = timelinePayload.filter((item) => {
+        if (!item.id) return true;
+        const prev = initialTimelineById.get(item.id);
+        if (!prev) return true;
+        return !isSameTimelineItem(item, prev);
+      });
+      const timelineChanged = timelineDeletes.length > 0 || timelineUpserts.length > 0;
 
-      const timelinePayload = normalizeTimelineForSave(completeTimeline);
       const stagesPayload = normalizeStagesForSave(stages);
-      const timelineChanged = JSON.stringify(timelinePayload) !== initialTimelineRef.current;
-      const stagesChanged = JSON.stringify(stagesPayload) !== initialStagesRef.current;
+      const initialStagesPayload = JSON.parse(initialStagesRef.current || "[]") as {
+        id?: string;
+        title: string;
+        tasks: { id?: string; description: string; done: boolean; completedAt: string | null }[];
+      }[];
+      const initialStagesById = new Map(
+        initialStagesPayload
+          .filter((s) => Boolean(s.id))
+          .map((s, idx) => [s.id as string, { stage: s, idx }]),
+      );
+      const currentStageIds = new Set(
+        stagesPayload.map((s) => s.id).filter((id): id is string => Boolean(id)),
+      );
+      const stageDeletes = initialStagesPayload
+        .map((s) => s.id)
+        .filter((id): id is string => Boolean(id))
+        .filter((id) => !currentStageIds.has(id));
+
+      const stageUpserts: {
+        id?: string;
+        title: string;
+        sortOrder: number;
+        taskDeletes: string[];
+        taskUpserts: {
+          id?: string;
+          description: string;
+          done: boolean;
+          completedAt: string | null;
+          sortOrder: number;
+        }[];
+      }[] = [];
+
+      for (let si = 0; si < stagesPayload.length; si++) {
+        const st = stagesPayload[si]!;
+        const prevWrap = st.id ? initialStagesById.get(st.id) : null;
+        const prevStage = prevWrap?.stage;
+        const stageMetaChanged = !prevStage || prevStage.title !== st.title || prevWrap?.idx !== si;
+
+        const prevTasksById = new Map(
+          (prevStage?.tasks ?? [])
+            .filter((t) => Boolean(t.id))
+            .map((t, ti) => [t.id as string, { task: t, ti }]),
+        );
+        const currentTaskIds = new Set(
+          st.tasks.map((t) => t.id).filter((id): id is string => Boolean(id)),
+        );
+        const taskDeletes = (prevStage?.tasks ?? [])
+          .map((t) => t.id)
+          .filter((id): id is string => Boolean(id))
+          .filter((id) => !currentTaskIds.has(id));
+
+        const taskUpserts = st.tasks
+          .map((t, ti) => {
+            if (!t.id) {
+              return {
+                id: undefined,
+                description: t.description,
+                done: t.done,
+                completedAt: t.completedAt,
+                sortOrder: ti,
+              };
+            }
+            const prevTaskWrap = prevTasksById.get(t.id);
+            if (!prevTaskWrap) {
+              return {
+                id: t.id,
+                description: t.description,
+                done: t.done,
+                completedAt: t.completedAt,
+                sortOrder: ti,
+              };
+            }
+            if (
+              !isSameStageTask(t, prevTaskWrap.task) ||
+              prevTaskWrap.ti !== ti
+            ) {
+              return {
+                id: t.id,
+                description: t.description,
+                done: t.done,
+                completedAt: t.completedAt,
+                sortOrder: ti,
+              };
+            }
+            return null;
+          })
+          .filter(Boolean) as {
+          id?: string;
+          description: string;
+          done: boolean;
+          completedAt: string | null;
+          sortOrder: number;
+        }[];
+
+        if (stageMetaChanged || taskDeletes.length > 0 || taskUpserts.length > 0) {
+          stageUpserts.push({
+            id: st.id,
+            title: st.title,
+            sortOrder: si,
+            taskDeletes,
+            taskUpserts,
+          });
+        }
+      }
+      const stagesChanged = stageDeletes.length > 0 || stageUpserts.length > 0;
+
       await fetchJson(`/api/projects/${projectId}/lk`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -2773,8 +2918,12 @@ export function LkEditorPanel({
             endAt: end ? dateYmdToEndIso(end) : null,
             comment: dcomment || null,
           },
-          ...(timelineChanged ? { timeline: timelinePayload } : {}),
-          ...(stagesChanged ? { stages: stagesPayload } : {}),
+          ...(timelineChanged
+            ? { timelineDelta: { deletes: timelineDeletes, upserts: timelineUpserts } }
+            : {}),
+          ...(stagesChanged
+            ? { stagesDelta: { deletes: stageDeletes, upserts: stageUpserts } }
+            : {}),
         }),
       });
       onSaved();
@@ -2843,7 +2992,7 @@ export function LkEditorPanel({
               <div className="mt-4">
                 <button
                   type="button"
-                  className="rounded-lg border border-[var(--foreground)]/20 px-3 py-2 text-sm text-[var(--muted)] transition-colors hover:text-[#5A86EE]"
+                  className="py-1 text-sm text-[var(--muted)] transition-colors hover:text-[#5A86EE]"
                   onClick={() => void loadMoreTimeline()}
                   disabled={timelineLoadingMore}
                 >
