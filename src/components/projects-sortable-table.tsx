@@ -68,7 +68,9 @@ export type ProjectRow = {
     slug: string;
     remainingAmountRubles: number;
     status: "active" | "paused" | "completed";
+    groupId?: string | null;
   };
+  group?: { id: string; title: string; sortOrder: number } | null;
   deadline: {
     startAt: string | null;
     endAt: string | null;
@@ -281,6 +283,7 @@ function SortableProjectRow({
   onBacklog,
   onLk,
   showBacklogColumn,
+  withTopBorder = false,
 }: {
   row: ProjectRow;
   onCustomer: () => void;
@@ -289,6 +292,7 @@ function SortableProjectRow({
   onBacklog: () => void;
   onLk: () => void;
   showBacklogColumn: boolean;
+  withTopBorder?: boolean;
 }) {
   const { theme } = useTheme();
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
@@ -353,7 +357,9 @@ function SortableProjectRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`${cols(showBacklogColumn)} border-b border-[var(--table-divider)] py-2`}
+      className={`${cols(showBacklogColumn)} border-b border-[var(--table-divider)] py-2 ${
+        withTopBorder ? "border-t" : ""
+      }`}
     >
       <div className={`flex min-h-[70px] items-start pr-2 ${cellHover}`}>
         <button
@@ -506,6 +512,7 @@ type Props = {
   ) => void;
   onOrderSaved?: () => void;
   showBacklogColumn?: boolean;
+  showGroupedProjects?: boolean;
 };
 
 function TableHeadIcon({
@@ -534,6 +541,7 @@ export function ProjectsSortableTable({
   setPanel,
   onOrderSaved,
   showBacklogColumn = true,
+  showGroupedProjects = false,
 }: Props) {
   const ids = useMemo(() => rows.map((r) => r.project.id), [rows]);
   const [order, setOrder] = useState<string[]>(ids);
@@ -562,6 +570,28 @@ export function ProjectsSortableTable({
     }
     return out;
   }, [order, rowById, rows]);
+
+  const groupedRows = useMemo(() => {
+    if (!showGroupedProjects) return null;
+    const groupsMeta = Array.from(
+      new Map(
+        orderedRows
+          .filter((r) => r.group?.id)
+          .map((r) => [r.group!.id, r.group!]),
+      ).values(),
+    ).sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, "ru"));
+
+    const withNoGroup = orderedRows.filter((r) => !r.group?.id);
+    const result: { key: string; title: string; rows: ProjectRow[] }[] = [];
+    for (const g of groupsMeta) {
+      const groupRows = orderedRows.filter((r) => r.group?.id === g.id);
+      if (groupRows.length) result.push({ key: g.id, title: g.title, rows: groupRows });
+    }
+    if (withNoGroup.length) {
+      result.push({ key: "no-group", title: "Без группы", rows: withNoGroup });
+    }
+    return result;
+  }, [orderedRows, showGroupedProjects]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -606,49 +636,107 @@ export function ProjectsSortableTable({
       onDragEnd={onDragEnd}
     >
       <div className={showBacklogColumn ? "min-w-[900px]" : "min-w-[760px]"}>
-        <div
-          className={`${cols(showBacklogColumn)} border-b border-[var(--table-divider)] pb-2 text-left text-xs`}
-        >
-          <div className="pr-2">
-            <TableHeadIcon iconLight={user1Icon} iconDark={userDark}>
-              Заказчик
+        {!showGroupedProjects ? (
+          <div
+            className={`${cols(showBacklogColumn)} border-b border-[var(--table-divider)] pb-2 text-left text-xs`}
+          >
+            <div className="pr-2">
+              <TableHeadIcon iconLight={user1Icon} iconDark={userDark}>
+                Заказчик
+              </TableHeadIcon>
+            </div>
+            <TableHeadIcon iconLight={calendarIcon} iconDark={calendarBlack}>
+              Текущий дедлайн
             </TableHeadIcon>
+            <div className="flex w-full justify-center">
+              <TableHeadIcon iconLight={lkIcon} iconDark={lkBlack}>
+                ЛК заказчика
+              </TableHeadIcon>
+            </div>
+            <TableHeadIcon iconLight={oplataIcon} iconDark={oplataBlack}>
+              Оплаты и документы
+            </TableHeadIcon>
+            {showBacklogColumn ? (
+              <TableHeadIcon iconLight={beklogIcon} iconDark={beklogBlack}>
+                Бэклог
+              </TableHeadIcon>
+            ) : null}
+            <div aria-hidden />
           </div>
-          <TableHeadIcon iconLight={calendarIcon} iconDark={calendarBlack}>
-            Текущий дедлайн
-          </TableHeadIcon>
-          <div className="flex w-full justify-center">
-            <TableHeadIcon iconLight={lkIcon} iconDark={lkBlack}>
-              ЛК заказчика
-            </TableHeadIcon>
-          </div>
-          <TableHeadIcon iconLight={oplataIcon} iconDark={oplataBlack}>
-            Оплаты и документы
-          </TableHeadIcon>
-          {showBacklogColumn ? (
-            <TableHeadIcon iconLight={beklogIcon} iconDark={beklogBlack}>
-              Бэклог
-            </TableHeadIcon>
-          ) : null}
-          <div aria-hidden />
-        </div>
+        ) : null}
         <SortableContext items={order} strategy={verticalListSortingStrategy}>
-          {orderedRows.map((r) => (
-            <SortableProjectRow
-              key={r.project.id}
-              row={r}
-              onCustomer={() => setPanel({ kind: "customer", id: r.project.id })}
-              onDeadline={() => setPanel({ kind: "deadline", id: r.project.id })}
-              onPayments={() => setPanel({ kind: "payments", id: r.project.id })}
-              onBacklog={
-                showBacklogColumn
-                  ? () => setPanel({ kind: "backlog", id: r.project.id })
-                  : () => {}
-              }
-              onLk={() => setPanel({ kind: "lk", id: r.project.id })}
-              showBacklogColumn={showBacklogColumn}
-            />
-          ))}
+          {showGroupedProjects && groupedRows
+            ? groupedRows.map((g, gi) => (
+                <div key={g.key} className={gi === 0 ? "" : "mt-20"}>
+                  <div
+                    className="py-3 text-[22px] leading-tight text-[var(--foreground)]"
+                    style={{ fontFamily: "var(--font-gilroy-bold), var(--font-gilroy), system-ui, sans-serif" }}
+                  >
+                    {g.title}
+                  </div>
+                  {gi === 0 ? (
+                    <div
+                      className={`${cols(showBacklogColumn)} border-b border-[var(--table-divider)] pb-2 text-left text-xs`}
+                    >
+                      <div className="pr-2">
+                        <TableHeadIcon iconLight={user1Icon} iconDark={userDark}>
+                          Заказчик
+                        </TableHeadIcon>
+                      </div>
+                      <TableHeadIcon iconLight={calendarIcon} iconDark={calendarBlack}>
+                        Текущий дедлайн
+                      </TableHeadIcon>
+                      <div className="flex w-full justify-center">
+                        <TableHeadIcon iconLight={lkIcon} iconDark={lkBlack}>
+                          ЛК заказчика
+                        </TableHeadIcon>
+                      </div>
+                      <TableHeadIcon iconLight={oplataIcon} iconDark={oplataBlack}>
+                        Оплаты и документы
+                      </TableHeadIcon>
+                      {showBacklogColumn ? (
+                        <TableHeadIcon iconLight={beklogIcon} iconDark={beklogBlack}>
+                          Бэклог
+                        </TableHeadIcon>
+                      ) : null}
+                      <div aria-hidden />
+                    </div>
+                  ) : null}
+                  {g.rows.map((r) => (
+                    <SortableProjectRow
+                      key={r.project.id}
+                      row={r}
+                      withTopBorder={g.rows[0]?.project.id === r.project.id}
+                      onCustomer={() => setPanel({ kind: "customer", id: r.project.id })}
+                      onDeadline={() => setPanel({ kind: "deadline", id: r.project.id })}
+                      onPayments={() => setPanel({ kind: "payments", id: r.project.id })}
+                      onBacklog={
+                        showBacklogColumn
+                          ? () => setPanel({ kind: "backlog", id: r.project.id })
+                          : () => {}
+                      }
+                      onLk={() => setPanel({ kind: "lk", id: r.project.id })}
+                      showBacklogColumn={showBacklogColumn}
+                    />
+                  ))}
+                </div>
+              ))
+            : orderedRows.map((r) => (
+                <SortableProjectRow
+                  key={r.project.id}
+                  row={r}
+                  onCustomer={() => setPanel({ kind: "customer", id: r.project.id })}
+                  onDeadline={() => setPanel({ kind: "deadline", id: r.project.id })}
+                  onPayments={() => setPanel({ kind: "payments", id: r.project.id })}
+                  onBacklog={
+                    showBacklogColumn
+                      ? () => setPanel({ kind: "backlog", id: r.project.id })
+                      : () => {}
+                  }
+                  onLk={() => setPanel({ kind: "lk", id: r.project.id })}
+                  showBacklogColumn={showBacklogColumn}
+                />
+              ))}
         </SortableContext>
       </div>
     </DndContext>

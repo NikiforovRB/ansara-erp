@@ -14,6 +14,7 @@ import {
   BacklogFormPanel,
   CustomerPanel,
   DeadlineFormPanel,
+  GroupsPanel,
   LkEditorPanel,
   MyProfilePanel,
   PaymentsFormPanel,
@@ -26,6 +27,7 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<Status>("active");
   const [showBacklogColumn, setShowBacklogColumn] = useState(true);
+  const [showGroupedProjects, setShowGroupedProjects] = useState(false);
   const [rows, setRows] = useState<ProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusCounts, setStatusCounts] = useState<Record<Status, number>>({
@@ -42,6 +44,7 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
     | { kind: "backlog"; id: string }
     | { kind: "lk"; id: string }
     | { kind: "settings" }
+    | { kind: "groups" }
     | { kind: "profile" }
   >(null);
 
@@ -88,6 +91,9 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
       const raw = window.localStorage.getItem("ansara.showBacklogColumn");
       if (raw === "0") setShowBacklogColumn(false);
       else if (raw === "1") setShowBacklogColumn(true);
+      const groupRaw = window.localStorage.getItem("ansara.showProjectGroups");
+      if (groupRaw === "1") setShowGroupedProjects(true);
+      else if (groupRaw === "0") setShowGroupedProjects(false);
     } catch {
       // ignore
     }
@@ -97,6 +103,15 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
     setShowBacklogColumn(next);
     try {
       window.localStorage.setItem("ansara.showBacklogColumn", next ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  }
+
+  function setShowGroupedProjectsPersist(next: boolean) {
+    setShowGroupedProjects(next);
+    try {
+      window.localStorage.setItem("ansara.showProjectGroups", next ? "1" : "0");
     } catch {
       // ignore
     }
@@ -121,6 +136,7 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
         onOpenSettings={
           user.role === "admin" ? () => setPanel({ kind: "settings" }) : undefined
         }
+        onOpenGroups={user.role === "admin" ? () => setPanel({ kind: "groups" }) : undefined}
         onAddProject={() => setPanel({ kind: "add" })}
         onOpenMyProfile={() => setPanel({ kind: "profile" })}
         showBacklogColumn={showBacklogColumn}
@@ -137,6 +153,7 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
             setPanel={setPanel}
             onOrderSaved={() => void refresh()}
             showBacklogColumn={showBacklogColumn}
+            showGroupedProjects={showGroupedProjects}
           />
         )}
       </div>
@@ -183,6 +200,15 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
         <SettingsPanel
           open={panel?.kind === "settings"}
           onClose={closePanel}
+        />
+      ) : null}
+      {user.role === "admin" ? (
+        <GroupsPanel
+          open={panel?.kind === "groups"}
+          onClose={closePanel}
+          groupedEnabled={showGroupedProjects}
+          onToggleGrouped={setShowGroupedProjectsPersist}
+          onSaved={() => void refresh()}
         />
       ) : null}
       <MyProfilePanel

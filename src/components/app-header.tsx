@@ -16,6 +16,8 @@ import moonIcon from "@/icons/moon.svg";
 import moonNavIcon from "@/icons/moon-nav.svg";
 import settingsIcon from "@/icons/settings.svg";
 import settingsNavIcon from "@/icons/settings-nav.svg";
+import groupsIcon from "@/icons/groups.svg";
+import groupsNavIcon from "@/icons/groups-nav.svg";
 import sunIcon from "@/icons/sun.svg";
 import sunNavIcon from "@/icons/sun-nav.svg";
 import userIcon from "@/icons/user.svg";
@@ -37,6 +39,7 @@ type Props = {
   statusCounts: Record<"active" | "paused" | "completed", number>;
   onStatusFilter: (s: "active" | "paused" | "completed") => void;
   onOpenSettings?: () => void;
+  onOpenGroups?: () => void;
   onOpenMyProfile: () => void;
   onAddProject: () => void;
   showBacklogColumn?: boolean;
@@ -134,6 +137,7 @@ export function AppHeader({
   statusCounts,
   onStatusFilter,
   onOpenSettings,
+  onOpenGroups,
   onOpenMyProfile,
   onAddProject,
   showBacklogColumn = true,
@@ -255,6 +259,14 @@ export function AppHeader({
       </nav>
 
       <div className="ml-auto flex shrink-0 items-center gap-1">
+        {user.role === "admin" && onOpenGroups ? (
+          <HeaderIcon
+            label="Группы"
+            srcDefault={groupsIcon}
+            srcHover={groupsNavIcon}
+            onClick={onOpenGroups}
+          />
+        ) : null}
         {user.role === "admin" && onOpenSettings ? (
           <HeaderIcon
             label="Настройки"

@@ -12,6 +12,7 @@ import {
   documents,
   paymentLedger,
   paymentTextBlocks,
+  projectGroups,
   projectDeadlines,
   projects,
   stageTasks,
@@ -37,6 +38,8 @@ export async function listProjectsWithMeta(status: ProjectStatusFilter) {
   if (!rows.length) return [];
 
   const ids = rows.map((r) => r.id);
+  const allGroups = await db.select().from(projectGroups).orderBy(asc(projectGroups.sortOrder));
+  const groupById = new Map(allGroups.map((g) => [g.id, g]));
 
   const deadlines = await db
     .select()
@@ -108,6 +111,7 @@ export async function listProjectsWithMeta(status: ProjectStatusFilter) {
     if (lists.length === 0) {
       return {
         project: p,
+        group: p.groupId ? (groupById.get(p.groupId) ?? null) : null,
         deadline: deadlineByProject.get(p.id) ?? null,
         paidRubles: paidByProject.get(p.id) ?? 0,
         paymentBlocks: blocksByProject.get(p.id) ?? [],
@@ -119,6 +123,7 @@ export async function listProjectsWithMeta(status: ProjectStatusFilter) {
     if (allCompleted) {
       return {
         project: p,
+        group: p.groupId ? (groupById.get(p.groupId) ?? null) : null,
         deadline: deadlineByProject.get(p.id) ?? null,
         paidRubles: paidByProject.get(p.id) ?? 0,
         paymentBlocks: blocksByProject.get(p.id) ?? [],
@@ -129,6 +134,7 @@ export async function listProjectsWithMeta(status: ProjectStatusFilter) {
     const last = lists[lists.length - 1];
     return {
       project: p,
+      group: p.groupId ? (groupById.get(p.groupId) ?? null) : null,
       deadline: deadlineByProject.get(p.id) ?? null,
       paidRubles: paidByProject.get(p.id) ?? 0,
       paymentBlocks: blocksByProject.get(p.id) ?? [],
@@ -151,7 +157,10 @@ export async function listProjectsWithMeta(status: ProjectStatusFilter) {
   });
 }
 
-export async function getProjectFull(projectId: string) {
+export async function getProjectFull(
+  projectId: string,
+  opts?: { timelineLimit?: number; timelineOffset?: number },
+) {
   await ensureDocumentsLinkTitleColumn();
   await ensureBacklogListColumns();
   await ensureTimelineDescriptionAndStagesComment();
@@ -169,11 +178,28 @@ export async function getProjectFull(projectId: string) {
     .where(eq(projectDeadlines.projectId, projectId))
     .limit(1);
 
-  const entries = await db
+  const timelineLimit = opts?.timelineLimit;
+  const timelineOffset = opts?.timelineOffset ?? 0;
+
+  const entriesQuery = db
     .select()
     .from(timelineEntries)
     .where(eq(timelineEntries.projectId, projectId))
-    .orderBy(desc(timelineEntries.entryDate), asc(timelineEntries.sortOrder));
+    .orderBy(desc(timelineEntries.entryDate), asc(timelineEntries.sortOrder))
+    .$dynamic();
+
+  if (timelineLimit && timelineLimit > 0) {
+    entriesQuery.limit(timelineLimit).offset(Math.max(0, timelineOffset));
+  }
+
+  const entries = await entriesQuery;
+  const [timelineCountRow] = await db
+    .select({
+      count: sql<number>`count(*)::int`.mapWith(Number),
+    })
+    .from(timelineEntries)
+    .where(eq(timelineEntries.projectId, projectId));
+
 
   const entryIds = entries.map((e) => e.id);
   let images: (typeof timelineImages.$inferSelect)[] = [];
@@ -264,7 +290,7 @@ export async function getProjectFull(projectId: string) {
   return {
     project,
     deadline: deadline ?? null,
-    timeline: { entries, images, links },
+    timeline: { entries, images, links, total: timelineCountRow?.count ?? 0 },
     stages: stagesRows,
     stageTasks: tasks,
     payments: {

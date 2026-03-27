@@ -139,9 +139,55 @@ export async function PUT(req: Request, ctx: Ctx) {
 
       if (timeline) {
         const existingEntries = await tx
-          .select({ id: timelineEntries.id })
+          .select({
+            id: timelineEntries.id,
+            entryDate: timelineEntries.entryDate,
+            title: timelineEntries.title,
+            description: timelineEntries.description,
+            sortOrder: timelineEntries.sortOrder,
+          })
           .from(timelineEntries)
           .where(eq(timelineEntries.projectId, id));
+        const existingEntryIdList = existingEntries.map((r) => r.id);
+        const existingImages = existingEntryIdList.length
+          ? await tx
+              .select({
+                entryId: timelineImages.entryId,
+                originalKey: timelineImages.originalKey,
+                webpKey: timelineImages.webpKey,
+                sortOrder: timelineImages.sortOrder,
+              })
+              .from(timelineImages)
+              .where(inArray(timelineImages.entryId, existingEntryIdList))
+          : [];
+        const existingLinks = existingEntryIdList.length
+          ? await tx
+              .select({
+                entryId: timelineLinks.entryId,
+                url: timelineLinks.url,
+                linkTitle: timelineLinks.linkTitle,
+                sortOrder: timelineLinks.sortOrder,
+              })
+              .from(timelineLinks)
+              .where(inArray(timelineLinks.entryId, existingEntryIdList))
+          : [];
+        const imagesByEntry = new Map<string, typeof existingImages>();
+        for (const im of existingImages) {
+          if (!imagesByEntry.has(im.entryId)) imagesByEntry.set(im.entryId, []);
+          imagesByEntry.get(im.entryId)!.push(im);
+        }
+        for (const arr of imagesByEntry.values()) {
+          arr.sort((a, b) => a.sortOrder - b.sortOrder);
+        }
+        const linksByEntry = new Map<string, typeof existingLinks>();
+        for (const ln of existingLinks) {
+          if (!linksByEntry.has(ln.entryId)) linksByEntry.set(ln.entryId, []);
+          linksByEntry.get(ln.entryId)!.push(ln);
+        }
+        for (const arr of linksByEntry.values()) {
+          arr.sort((a, b) => a.sortOrder - b.sortOrder);
+        }
+        const existingEntryById = new Map(existingEntries.map((r) => [r.id, r]));
         const existingEntryIds = new Set(existingEntries.map((r) => r.id));
         const incomingKnownEntryIds = new Set(
           timeline
@@ -161,15 +207,24 @@ export async function PUT(req: Request, ctx: Ctx) {
           let entryId = incomingId;
 
           if (incomingId) {
-            await tx
-              .update(timelineEntries)
-              .set({
-                entryDate: row.entryDate,
-                title: row.title,
-                description: row.description ?? "",
-                sortOrder: i,
-              })
-              .where(eq(timelineEntries.id, incomingId));
+            const prev = existingEntryById.get(incomingId);
+            if (
+              !prev ||
+              String(prev.entryDate).slice(0, 10) !== row.entryDate ||
+              prev.title !== row.title ||
+              (prev.description ?? "") !== (row.description ?? "") ||
+              prev.sortOrder !== i
+            ) {
+              await tx
+                .update(timelineEntries)
+                .set({
+                  entryDate: row.entryDate,
+                  title: row.title,
+                  description: row.description ?? "",
+                  sortOrder: i,
+                })
+                .where(eq(timelineEntries.id, incomingId));
+            }
           } else {
             const [inserted] = await tx
               .insert(timelineEntries)
@@ -189,38 +244,81 @@ export async function PUT(req: Request, ctx: Ctx) {
           }
 
           if (entryId) {
-            await tx.delete(timelineImages).where(eq(timelineImages.entryId, entryId));
-            await tx.delete(timelineLinks).where(eq(timelineLinks.entryId, entryId));
-          }
+            const prevImages = imagesByEntry.get(entryId) ?? [];
+            const sameImages =
+              prevImages.length === row.images.length &&
+              prevImages.every(
+                (x, idx) =>
+                  x.originalKey === row.images[idx]?.originalKey &&
+                  x.webpKey === row.images[idx]?.webpKey &&
+                  x.sortOrder === idx,
+              );
+            if (!sameImages) {
+              await tx.delete(timelineImages).where(eq(timelineImages.entryId, entryId));
+              if (row.images.length) {
+                await tx.insert(timelineImages).values(
+                  row.images.map((im, j) => ({
+                    entryId,
+                    originalKey: im.originalKey,
+                    webpKey: im.webpKey,
+                    sortOrder: j,
+                  })),
+                );
+              }
+            }
 
-          if (row.images.length && entryId) {
-            await tx.insert(timelineImages).values(
-              row.images.map((im, j) => ({
-                entryId,
-                originalKey: im.originalKey,
-                webpKey: im.webpKey,
-                sortOrder: j,
-              })),
-            );
-          }
-          if (row.links.length && entryId) {
-            await tx.insert(timelineLinks).values(
-              row.links.map((ln, j) => ({
-                entryId,
-                url: ln.url,
-                linkTitle: ln.title,
-                sortOrder: j,
-              })),
-            );
+            const prevLinks = linksByEntry.get(entryId) ?? [];
+            const sameLinks =
+              prevLinks.length === row.links.length &&
+              prevLinks.every(
+                (x, idx) =>
+                  x.url === row.links[idx]?.url &&
+                  x.linkTitle === row.links[idx]?.title &&
+                  x.sortOrder === idx,
+              );
+            if (!sameLinks) {
+              await tx.delete(timelineLinks).where(eq(timelineLinks.entryId, entryId));
+              if (row.links.length) {
+                await tx.insert(timelineLinks).values(
+                  row.links.map((ln, j) => ({
+                    entryId,
+                    url: ln.url,
+                    linkTitle: ln.title,
+                    sortOrder: j,
+                  })),
+                );
+              }
+            }
           }
         }
       }
 
       if (stagePayload) {
         const existingStages = await tx
-          .select({ id: stages.id })
+          .select({ id: stages.id, title: stages.title, sortOrder: stages.sortOrder })
           .from(stages)
           .where(eq(stages.projectId, id));
+        const existingStageRowsById = new Map(existingStages.map((s) => [s.id, s]));
+        const existingStageIdList = existingStages.map((s) => s.id);
+        const existingTasksRows = existingStageIdList.length
+          ? await tx
+              .select({
+                id: stageTasks.id,
+                stageId: stageTasks.stageId,
+                description: stageTasks.description,
+                done: stageTasks.done,
+                completedAt: stageTasks.completedAt,
+                sortOrder: stageTasks.sortOrder,
+              })
+              .from(stageTasks)
+              .where(inArray(stageTasks.stageId, existingStageIdList))
+          : [];
+        const existingTasksByStage = new Map<string, typeof existingTasksRows>();
+        for (const t of existingTasksRows) {
+          if (!existingTasksByStage.has(t.stageId)) existingTasksByStage.set(t.stageId, []);
+          existingTasksByStage.get(t.stageId)!.push(t);
+        }
+        for (const arr of existingTasksByStage.values()) arr.sort((a, b) => a.sortOrder - b.sortOrder);
         const existingStageIds = new Set(existingStages.map((r) => r.id));
         const incomingKnownStageIds = new Set(
           stagePayload
@@ -240,13 +338,16 @@ export async function PUT(req: Request, ctx: Ctx) {
           let stageId = incomingStageId;
 
           if (incomingStageId) {
-            await tx
-              .update(stages)
-              .set({
-                title: st.title,
-                sortOrder: si,
-              })
-              .where(eq(stages.id, incomingStageId));
+            const prevStage = existingStageRowsById.get(incomingStageId);
+            if (!prevStage || prevStage.title !== st.title || prevStage.sortOrder !== si) {
+              await tx
+                .update(stages)
+                .set({
+                  title: st.title,
+                  sortOrder: si,
+                })
+                .where(eq(stages.id, incomingStageId));
+            }
           } else {
             const [inserted] = await tx
               .insert(stages)
@@ -262,7 +363,13 @@ export async function PUT(req: Request, ctx: Ctx) {
           if (!stageId) throw new Error("Не удалось получить id этапа после сохранения");
 
           const existingTasksForStage = await tx
-            .select({ id: stageTasks.id })
+            .select({
+              id: stageTasks.id,
+              description: stageTasks.description,
+              done: stageTasks.done,
+              completedAt: stageTasks.completedAt,
+              sortOrder: stageTasks.sortOrder,
+            })
             .from(stageTasks)
             .where(eq(stageTasks.stageId, stageId));
           const existingTaskIds = new Set(existingTasksForStage.map((r) => r.id));
@@ -282,15 +389,25 @@ export async function PUT(req: Request, ctx: Ctx) {
             const task = st.tasks[ti];
             const incomingTaskId = task.id && existingTaskIds.has(task.id) ? task.id : null;
             if (incomingTaskId) {
-              await tx
-                .update(stageTasks)
-                .set({
-                  description: task.description,
-                  done: task.done,
-                  completedAt: task.completedAt ?? null,
-                  sortOrder: ti,
-                })
-                .where(eq(stageTasks.id, incomingTaskId));
+              const prev = existingTasksForStage.find((x) => x.id === incomingTaskId);
+              if (
+                !prev ||
+                prev.description !== task.description ||
+                prev.done !== task.done ||
+                (prev.completedAt ? String(prev.completedAt).slice(0, 10) : null) !==
+                  (task.completedAt ?? null) ||
+                prev.sortOrder !== ti
+              ) {
+                await tx
+                  .update(stageTasks)
+                  .set({
+                    description: task.description,
+                    done: task.done,
+                    completedAt: task.completedAt ?? null,
+                    sortOrder: ti,
+                  })
+                  .where(eq(stageTasks.id, incomingTaskId));
+              }
             } else {
               await tx.insert(stageTasks).values({
                 stageId,

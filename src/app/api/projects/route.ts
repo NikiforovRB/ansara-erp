@@ -52,7 +52,10 @@ export async function GET(req: Request) {
       }
       return r;
     });
-    return Response.json({ projects: projectsOut, counts });
+    return Response.json(
+      { projects: projectsOut, counts },
+      { headers: { "Cache-Control": "private, max-age=10, stale-while-revalidate=30" } },
+    );
   } catch (e) {
     if (e instanceof Response) throw e;
     const message = e instanceof Error ? e.message : String(e);
@@ -69,6 +72,7 @@ const createSchema = z.object({
   phone: z.string().optional().nullable(),
   pinView: z.string().regex(/^\d{4}$/),
   shortDescription: z.string().optional().nullable(),
+  groupId: z.string().uuid().optional().nullable(),
 });
 
 export async function POST(req: Request) {
@@ -78,7 +82,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return Response.json({ error: "Неверные данные" }, { status: 400 });
   }
-  const { customerName, phone, pinView, shortDescription } = parsed.data;
+  const { customerName, phone, pinView, shortDescription, groupId } = parsed.data;
 
   let slug = generateProjectSlug();
   for (let i = 0; i < 20; i++) {
@@ -107,6 +111,7 @@ export async function POST(req: Request) {
       phone: phone ?? null,
       pinView,
       shortDescription: shortDescription ?? null,
+      groupId: groupId ?? null,
       slug,
       status: "active",
       dashboardSortOrder: agg.m + 1,

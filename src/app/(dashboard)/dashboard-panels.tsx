@@ -505,7 +505,17 @@ export function AddProjectPanel({
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
   const [shortDescription, setShortDescription] = useState("");
+  const [groupId, setGroupId] = useState("");
+  const [groups, setGroups] = useState<{ id: string; title: string }[]>([]);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      const j = await fetchJson("/api/project-groups").catch(() => ({ groups: [] }));
+      setGroups(Array.isArray(j?.groups) ? j.groups : []);
+    })();
+  }, [open]);
 
   async function save() {
     setBusy(true);
@@ -518,6 +528,7 @@ export function AddProjectPanel({
           phone: phone || null,
           pinView: pin,
           shortDescription: shortDescription || null,
+          groupId: groupId || null,
         }),
       });
       onCreated();
@@ -525,6 +536,7 @@ export function AddProjectPanel({
       setPhone("");
       setPin("");
       setShortDescription("");
+      setGroupId("");
     } catch {
       alert("Не удалось создать проект");
     } finally {
@@ -540,7 +552,7 @@ export function AddProjectPanel({
       footer={btnFooter(onClose, save, busy || pin.length !== 4)}
       saving={busy}
     >
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex min-w-0 flex-col gap-0.5">
           <SettingsLbl>Имя заказчика</SettingsLbl>
           <input
@@ -566,6 +578,21 @@ export function AddProjectPanel({
             inputMode="numeric"
             onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
           />
+        </div>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <SettingsLbl>Группа</SettingsLbl>
+          <select
+            className={fieldClass()}
+            value={groupId}
+            onChange={(e) => setGroupId(e.target.value)}
+          >
+            <option value="">Без группы</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.title}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
       <div className="mt-4 flex flex-col gap-0.5">
@@ -631,6 +658,8 @@ export function CustomerPanel({
   const [shortDescription, setShortDescription] = useState("");
   const [longDescription, setLongDescription] = useState("");
   const [cms, setCms] = useState<CmsValue | "">("");
+  const [groupId, setGroupId] = useState<string>("");
+  const [groups, setGroups] = useState<{ id: string; title: string }[]>([]);
   const [status, setStatus] = useState<"active" | "paused" | "completed">("active");
 
   useEffect(() => {
@@ -641,8 +670,17 @@ export function CustomerPanel({
     setShortDescription(p.shortDescription ?? "");
     setLongDescription(p.longDescription ?? "");
     setCms((p.cms ?? "") as CmsValue | "");
+    setGroupId((p as { groupId?: string | null }).groupId ?? "");
     setStatus(p.status);
   }, [p]);
+
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      const j = await fetchJson("/api/project-groups").catch(() => ({ groups: [] }));
+      setGroups(Array.isArray(j?.groups) ? j.groups : []);
+    })();
+  }, [open]);
 
   async function save() {
     if (!p) return;
@@ -658,6 +696,7 @@ export function CustomerPanel({
           shortDescription: shortDescription || null,
           longDescription: longDescription || null,
           cms: cms || null,
+          groupId: groupId || null,
           status,
         }),
       });
@@ -734,7 +773,7 @@ export function CustomerPanel({
             >
               {customerName}
             </p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div className="flex min-w-0 flex-col gap-0.5">
               <SettingsLbl>Имя заказчика</SettingsLbl>
               <input
@@ -768,6 +807,21 @@ export function CustomerPanel({
                 {cmsOptions.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <SettingsLbl>Группа</SettingsLbl>
+              <select
+                className={fieldClass()}
+                value={groupId}
+                onChange={(e) => setGroupId(e.target.value)}
+              >
+                <option value="">Без группы</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.title}
                   </option>
                 ))}
               </select>
@@ -2422,6 +2476,9 @@ export function LkEditorPanel({
   const [slider, setSlider] = useState<string[] | null>(null);
   const [sliderIdx, setSliderIdx] = useState(0);
   const [lkLoad, setLkLoad] = useState(false);
+  const [timelineHasMore, setTimelineHasMore] = useState(false);
+  const [timelineLoadingMore, setTimelineLoadingMore] = useState(false);
+  const [timelineLoadedCount, setTimelineLoadedCount] = useState(0);
   const initialTimelineRef = useRef<string>("");
   const initialStagesRef = useRef<string>("");
 
@@ -2470,6 +2527,53 @@ export function LkEditorPanel({
     [],
   );
 
+  const toTimelineEditors = useCallback(
+    (
+      entries: { id: string; entryDate: string; title: string; description?: string | null }[],
+      images: {
+        entryId: string;
+        originalKey: string;
+        webpKey: string;
+        webpUrl?: string | null;
+        originalUrl?: string | null;
+      }[],
+      links: { entryId: string; url: string; linkTitle: string }[],
+    ) => {
+      const byEntry = new Map<string, TlEntryEditor>();
+      const order: string[] = [];
+      for (const e of entries) {
+        order.push(e.id);
+        byEntry.set(e.id, {
+          id: e.id,
+          clientKey: nanoid(),
+          entryDate: e.entryDate.slice(0, 10),
+          title: e.title,
+          description: e.description ?? "",
+          images: [],
+          links: [],
+        });
+      }
+      for (const im of images) {
+        const ent = byEntry.get(im.entryId);
+        if (!ent) continue;
+        ent.images.push({
+          id: nanoid(),
+          originalKey: im.originalKey,
+          webpKey: im.webpKey,
+          webpUrl: im.webpUrl ?? "",
+          originalUrl: im.originalUrl ?? "",
+        });
+      }
+      for (const ln of links) {
+        const ent = byEntry.get(ln.entryId);
+        if (!ent) continue;
+        ent.links.push({ url: ln.url, title: ln.linkTitle });
+      }
+      return sortTimelineDesc(order.map((id) => byEntry.get(id)!));
+    },
+    [],
+  );
+
   function onStageTaskDragEnd(si: number) {
     return ({ active, over }: DragEndEvent) => {
       if (!over || active.id === over.id) return;
@@ -2494,7 +2598,9 @@ export function LkEditorPanel({
     setStagesCommentOpen(false);
     setLkLoad(true);
     void (async () => {
-      const j = await fetchJson(`/api/projects/${projectId}`).catch(() => null);
+      const j = await fetchJson(`/api/projects/${projectId}?timelineLimit=10&timelineOffset=0`).catch(
+        () => null,
+      );
       if (!j) {
         setLkLoad(false);
         return;
@@ -2524,53 +2630,25 @@ export function LkEditorPanel({
         ),
       );
 
-      const byEntry = new Map<string, TlEntryEditor>();
-      const order: string[] = [];
-      for (const e of j.timeline.entries as {
-        id: string;
-        entryDate: string;
-        title: string;
-        description?: string | null;
-      }[]) {
-        order.push(e.id);
-        byEntry.set(e.id, {
-          id: e.id,
-          clientKey: nanoid(),
-          entryDate: e.entryDate.slice(0, 10),
-          title: e.title,
-          description: e.description ?? "",
-          images: [],
-          links: [],
-        });
-      }
-      for (const im of j.timeline.images as {
-        entryId: string;
-        originalKey: string;
-        webpKey: string;
-        webpUrl?: string | null;
-        originalUrl?: string | null;
-      }[]) {
-        const ent = byEntry.get(im.entryId);
-        if (!ent) continue;
-        ent.images.push({
-          id: nanoid(),
-          originalKey: im.originalKey,
-          webpKey: im.webpKey,
-          webpUrl: im.webpUrl ?? "",
-          originalUrl: im.originalUrl ?? "",
-        });
-      }
-      for (const ln of j.timeline.links as {
-        entryId: string;
-        url: string;
-        linkTitle: string;
-      }[]) {
-        const ent = byEntry.get(ln.entryId);
-        if (!ent) continue;
-        ent.links.push({ url: ln.url, title: ln.linkTitle });
-      }
-      const loadedTimeline = sortTimelineDesc(order.map((id) => byEntry.get(id)!));
+      const loadedTimeline = toTimelineEditors(
+        j.timeline.entries as {
+          id: string;
+          entryDate: string;
+          title: string;
+          description?: string | null;
+        }[],
+        j.timeline.images as {
+          entryId: string;
+          originalKey: string;
+          webpKey: string;
+          webpUrl?: string | null;
+          originalUrl?: string | null;
+        }[],
+        j.timeline.links as { entryId: string; url: string; linkTitle: string }[],
+      );
       setTimeline(loadedTimeline);
+      setTimelineLoadedCount(loadedTimeline.length);
+      setTimelineHasMore(Boolean(j.timelineHasMore));
 
       const stOrder: string[] = [];
       const stMap = new Map<string, StRow>();
@@ -2600,7 +2678,36 @@ export function LkEditorPanel({
       initialStagesRef.current = JSON.stringify(normalizeStagesForSave(loadedStages));
       setLkLoad(false);
     })();
-  }, [open, projectId, normalizeStagesForSave, normalizeTimelineForSave]);
+  }, [open, projectId, normalizeStagesForSave, normalizeTimelineForSave, toTimelineEditors]);
+
+  async function loadMoreTimeline() {
+    if (!timelineHasMore || timelineLoadingMore) return;
+    setTimelineLoadingMore(true);
+    try {
+      const j = await fetchJson(`/api/projects/${projectId}/timeline?limit=10&offset=${timelineLoadedCount}`);
+      const nextChunk = toTimelineEditors(
+        (j.entries ?? []) as {
+          id: string;
+          entryDate: string;
+          title: string;
+          description?: string | null;
+        }[],
+        (j.images ?? []) as {
+          entryId: string;
+          originalKey: string;
+          webpKey: string;
+          webpUrl?: string | null;
+          originalUrl?: string | null;
+        }[],
+        (j.links ?? []) as { entryId: string; url: string; linkTitle: string }[],
+      );
+      setTimeline((prev) => [...prev, ...nextChunk]);
+      setTimelineLoadedCount((v) => v + nextChunk.length);
+      setTimelineHasMore(Boolean(j.hasMore));
+    } finally {
+      setTimelineLoadingMore(false);
+    }
+  }
 
   useLayoutEffect(() => {
     fitStagesCommentHeight();
@@ -2609,7 +2716,46 @@ export function LkEditorPanel({
   async function save() {
     setBusy(true);
     try {
-      const timelinePayload = normalizeTimelineForSave(timeline);
+      const quickTimelineChanged =
+        JSON.stringify(normalizeTimelineForSave(timeline)) !== initialTimelineRef.current;
+      let completeTimeline = timeline;
+      if (quickTimelineChanged && timelineHasMore) {
+        let hasMore: boolean = true;
+        let offset = timelineLoadedCount;
+        while (hasMore) {
+          const j = await fetchJson(`/api/projects/${projectId}/timeline?limit=50&offset=${offset}`);
+          const chunk = toTimelineEditors(
+            (j.entries ?? []) as {
+              id: string;
+              entryDate: string;
+              title: string;
+              description?: string | null;
+            }[],
+            (j.images ?? []) as {
+              entryId: string;
+              originalKey: string;
+              webpKey: string;
+              webpUrl?: string | null;
+              originalUrl?: string | null;
+            }[],
+            (j.links ?? []) as { entryId: string; url: string; linkTitle: string }[],
+          );
+          const existingIds = new Set(
+            completeTimeline.map((x) => x.id).filter((x): x is string => Boolean(x)),
+          );
+          for (const e of chunk) {
+            if (e.id && existingIds.has(e.id)) continue;
+            completeTimeline = [...completeTimeline, e];
+          }
+          offset += chunk.length;
+          hasMore = Boolean(j.hasMore);
+        }
+        setTimeline(sortTimelineDesc(completeTimeline));
+        setTimelineLoadedCount(offset);
+        setTimelineHasMore(false);
+      }
+
+      const timelinePayload = normalizeTimelineForSave(completeTimeline);
       const stagesPayload = normalizeStagesForSave(stages);
       const timelineChanged = JSON.stringify(timelinePayload) !== initialTimelineRef.current;
       const stagesChanged = JSON.stringify(stagesPayload) !== initialStagesRef.current;
@@ -2693,6 +2839,18 @@ export function LkEditorPanel({
                 setSliderIdx(index);
               }}
             />
+            {timelineHasMore ? (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  className="rounded-lg border border-[var(--foreground)]/20 px-3 py-2 text-sm text-[var(--muted)] transition-colors hover:text-[#5A86EE]"
+                  onClick={() => void loadMoreTimeline()}
+                  disabled={timelineLoadingMore}
+                >
+                  {timelineLoadingMore ? "Загрузка..." : "Загрузить ещё"}
+                </button>
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-8">
@@ -3133,6 +3291,222 @@ export function SettingsPanel({
         </DndContext>
       </div>
     </RightPanel>
+  );
+}
+
+export function GroupsPanel({
+  open,
+  onClose,
+  groupedEnabled,
+  onToggleGrouped,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  groupedEnabled: boolean;
+  onToggleGrouped: (next: boolean) => void;
+  onSaved: () => void;
+}) {
+  const { theme } = useTheme();
+  const [groups, setGroups] = useState<{ id: string; title: string; sortOrder: number }[]>([]);
+  const [order, setOrder] = useState<string[]>([]);
+  const [newTitle, setNewTitle] = useState("");
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  const reload = useCallback(async () => {
+    const j = await fetchJson("/api/project-groups").catch(() => ({ groups: [] }));
+    const rows = (j.groups ?? []) as { id: string; title: string; sortOrder: number }[];
+    setGroups(rows);
+    setOrder(rows.map((g) => g.id));
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    void reload();
+  }, [open, reload]);
+
+  const byId = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups]);
+  const ordered = useMemo(() => {
+    const out = order.map((id) => byId.get(id)).filter(Boolean) as typeof groups;
+    const missing = groups.filter((g) => !order.includes(g.id));
+    return [...out, ...missing];
+  }, [groups, byId, order]);
+
+  async function addGroup() {
+    if (!newTitle.trim()) return;
+    await fetchJson("/api/project-groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: newTitle.trim() }),
+    }).catch(() => null);
+    setNewTitle("");
+    await reload();
+    onSaved();
+  }
+
+  function onDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    setOrder((prev) => {
+      const oi = prev.indexOf(String(active.id));
+      const ni = prev.indexOf(String(over.id));
+      if (oi < 0 || ni < 0) return prev;
+      const next = arrayMove(prev, oi, ni);
+      void fetchJson("/api/project-groups/order", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedIds: next }),
+      }).then(() => onSaved()).catch(() => null);
+      return next;
+    });
+  }
+
+  return (
+    <RightPanel open={open} title="Группы" onClose={onClose}>
+      <div className="mb-6">
+        <div className="block">
+          <SettingsLbl>Режим отображения</SettingsLbl>
+        </div>
+        <div
+          className="mt-2 inline-flex rounded-xl p-1"
+          style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 10%, transparent)" }}
+        >
+          <button
+            type="button"
+            className={`rounded-lg px-3 py-2 text-sm transition-colors ${
+              !groupedEnabled
+                ? "text-white"
+                : "text-[var(--muted)] hover:text-[#5A86EE]"
+            }`}
+            style={
+              !groupedEnabled
+                ? {
+                    backgroundColor:
+                      theme === "dark"
+                        ? "color-mix(in srgb, #5A86EE 70%, black)"
+                        : "color-mix(in srgb, #5A86EE 70%, white)",
+                  }
+                : undefined
+            }
+            onClick={() => onToggleGrouped(false)}
+          >
+            Показывать без группировки
+          </button>
+          <button
+            type="button"
+            className={`rounded-lg px-3 py-2 text-sm transition-colors ${
+              groupedEnabled
+                ? "text-white"
+                : "text-[var(--muted)] hover:text-[#5A86EE]"
+            }`}
+            style={
+              groupedEnabled
+                ? {
+                    backgroundColor:
+                      theme === "dark"
+                        ? "color-mix(in srgb, #5A86EE 70%, black)"
+                        : "color-mix(in srgb, #5A86EE 70%, white)",
+                  }
+                : undefined
+            }
+            onClick={() => onToggleGrouped(true)}
+          >
+            Показывать с группировкой
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-end gap-2">
+        <SettingsField label="Новая группа" className="min-w-[14rem] flex-1">
+          <input
+            className={fieldClass("w-full")}
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder="Введите заголовок"
+          />
+        </SettingsField>
+        <SettingsPlusButton onClick={() => void addGroup()} />
+      </div>
+
+      <div className="mt-6">
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext items={ordered.map((g) => g.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-3">
+              {ordered.map((g) => (
+                <GroupRow key={g.id} group={g} onSaved={() => void reload()} onChanged={onSaved} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      </div>
+    </RightPanel>
+  );
+}
+
+function GroupRow({
+  group,
+  onSaved,
+  onChanged,
+}: {
+  group: { id: string; title: string };
+  onSaved: () => void;
+  onChanged: () => void;
+}) {
+  const { theme } = useTheme();
+  const drag = useSortable({ id: group.id });
+  const [title, setTitle] = useState(group.title);
+  const dragStyle = {
+    transform: CSS.Transform.toString(drag.transform),
+    transition: drag.transition,
+    opacity: drag.isDragging ? 0.86 : 1,
+  };
+
+  useEffect(() => {
+    setTitle(group.title);
+  }, [group.title]);
+
+  async function saveTitle() {
+    const next = title.trim();
+    if (!next || next === group.title) return;
+    await fetchJson(`/api/project-groups/${group.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: next }),
+    }).catch(() => null);
+    onSaved();
+    onChanged();
+  }
+
+  async function removeGroup() {
+    if (!confirm("Удалить группу?")) return;
+    await fetchJson(`/api/project-groups/${group.id}`, { method: "DELETE" }).catch(() => null);
+    onSaved();
+    onChanged();
+  }
+
+  return (
+    <div
+      ref={drag.setNodeRef}
+      style={dragStyle}
+      className="flex items-center gap-2 rounded-lg p-2"
+    >
+      <input
+        className={fieldClass("flex-1")}
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onBlur={() => void saveTitle()}
+      />
+      <SettingsDeleteButton onClick={() => void removeGroup()} />
+      <button
+        type="button"
+        className="cursor-grab touch-none p-1 active:cursor-grabbing"
+        aria-label="Перетащить группу"
+        {...drag.attributes}
+        {...drag.listeners}
+      >
+        <Image src={theme === "dark" ? dragBlack : dragIcon} alt="" width={16} height={16} unoptimized />
+      </button>
+    </div>
   );
 }
 

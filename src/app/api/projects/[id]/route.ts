@@ -26,14 +26,26 @@ const patchSchema = z.object({
   status: z.enum(["active", "paused", "completed"]).optional(),
   lkTitle: z.string().min(1).optional(),
   remainingAmountRubles: z.number().int().min(0).optional(),
+  groupId: z.string().uuid().optional().nullable(),
 });
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(_req: Request, ctx: Ctx) {
+export async function GET(req: Request, ctx: Ctx) {
   await requireUser();
   const { id } = await ctx.params;
-  const full = await getProjectFull(id);
+  const { searchParams } = new URL(req.url);
+  const timelineLimitRaw = Number(searchParams.get("timelineLimit") ?? "");
+  const timelineOffsetRaw = Number(searchParams.get("timelineOffset") ?? "");
+  const timelineLimit =
+    Number.isFinite(timelineLimitRaw) && timelineLimitRaw > 0
+      ? Math.min(100, Math.trunc(timelineLimitRaw))
+      : undefined;
+  const timelineOffset =
+    Number.isFinite(timelineOffsetRaw) && timelineOffsetRaw >= 0
+      ? Math.trunc(timelineOffsetRaw)
+      : 0;
+  const full = await getProjectFull(id, { timelineLimit, timelineOffset });
   if (!full) return Response.json({ error: "Не найдено" }, { status: 404 });
   const images = full.timeline.images.map((im) => ({
     ...im,
@@ -53,10 +65,17 @@ export async function GET(_req: Request, ctx: Ctx) {
         ),
       }
     : null;
-  return Response.json({
+  const payload = {
     ...full,
     deadline,
     timeline: { ...full.timeline, images },
+    timelineHasMore:
+      typeof full.timeline.total === "number"
+        ? timelineOffset + (full.timeline.entries?.length ?? 0) < full.timeline.total
+        : false,
+  };
+  return Response.json(payload, {
+    headers: { "Cache-Control": "private, max-age=10, stale-while-revalidate=30" },
   });
 }
 

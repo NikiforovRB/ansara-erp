@@ -70,6 +70,7 @@ export const projects = pgTable(
     shortDescription: text("short_description"),
     longDescription: text("long_description"),
     cms: cmsEnum("cms"),
+    groupId: uuid("group_id"),
     status: projectStatusEnum("status").notNull().default("active"),
     slug: varchar("slug", { length: 6 }).notNull(),
     lkTitle: varchar("lk_title", { length: 512 }).notNull().default("Личный кабинет"),
@@ -89,6 +90,12 @@ export const projects = pgTable(
   },
   (t) => [uniqueIndex("projects_slug_idx").on(t.slug)],
 );
+
+export const projectGroups = pgTable("project_groups", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  title: varchar("title", { length: 256 }).notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
 
 export const projectDeadlines = pgTable("project_deadlines", {
   projectId: uuid("project_id")
@@ -212,6 +219,10 @@ export const usersRelations = relations(users, ({ many }) => ({
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
+  group: one(projectGroups, {
+    fields: [projects.groupId],
+    references: [projectGroups.id],
+  }),
   deadline: one(projectDeadlines, {
     fields: [projects.id],
     references: [projectDeadlines.projectId],
@@ -222,6 +233,10 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   paymentBlocks: many(paymentTextBlocks),
   documents: many(documents),
   backlogLists: many(backlogLists),
+}));
+
+export const projectGroupsRelations = relations(projectGroups, ({ many }) => ({
+  projects: many(projects),
 }));
 
 export const projectDeadlinesRelations = relations(projectDeadlines, ({ one }) => ({
