@@ -17,8 +17,16 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import Image from "next/image";
 import { nanoid } from "nanoid";
-import type { Dispatch, SetStateAction } from "react";
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { DatePickerField } from "@/components/minimal-date-picker";
 import { useTheme } from "@/components/theme-provider";
 import closeBlack from "@/icons/close-black.svg";
@@ -450,7 +458,7 @@ function TimelineEntryBlock({
                 strategy={horizontalListSortingStrategy}
               >
                 <div className="flex flex-wrap items-start gap-2">
-                  {entry.images.map((im, ii) => (
+                  {entry.images.map((im) => (
                     <SortableTimelineThumb
                       key={im.id}
                       img={im}
@@ -666,40 +674,45 @@ export function LkEditorTimelineSection({
   editingKey: string | null;
   setEditingKey: Dispatch<SetStateAction<string | null>>;
 }) {
-  return (
-    <div className="mt-4 space-y-4">
-      {timeline.map((e) => (
-        <TimelineEntryBlock
-          key={e.clientKey}
-          projectId={projectId}
-          entry={e}
-          expanded={editingKey === e.clientKey}
-          onToggleEdit={() =>
-            setEditingKey((k) => (k === e.clientKey ? null : e.clientKey))
-          }
-          onPatch={(patch) => {
-            setTimeline((prev) =>
-              sortTimelineDesc(
-                prev.map((x) =>
-                  x.clientKey === e.clientKey ? { ...x, ...patch } : x,
-                ),
+  const renderBlock = useCallback(
+    (e: TlEntryEditor) => (
+      <TimelineEntryBlock
+        projectId={projectId}
+        entry={e}
+        expanded={editingKey === e.clientKey}
+        onToggleEdit={() =>
+          setEditingKey((k) => (k === e.clientKey ? null : e.clientKey))
+        }
+        onPatch={(patch) => {
+          setTimeline((prev) =>
+            sortTimelineDesc(
+              prev.map((x) =>
+                x.clientKey === e.clientKey ? { ...x, ...patch } : x,
               ),
-            );
-          }}
-          onUpdateEntry={(fn) => {
-            setTimeline((prev) =>
-              sortTimelineDesc(
-                prev.map((x) => (x.clientKey === e.clientKey ? fn(x) : x)),
-              ),
-            );
-          }}
-          onDeleteEntry={() => {
-            setTimeline((prev) => prev.filter((x) => x.clientKey !== e.clientKey));
-            setEditingKey((k) => (k === e.clientKey ? null : k));
-          }}
-          onOpenSlider={onOpenSlider}
-        />
-      ))}
-    </div>
+            ),
+          );
+        }}
+        onUpdateEntry={(fn) => {
+          setTimeline((prev) =>
+            sortTimelineDesc(
+              prev.map((x) => (x.clientKey === e.clientKey ? fn(x) : x)),
+            ),
+          );
+        }}
+        onDeleteEntry={() => {
+          setTimeline((prev) => prev.filter((x) => x.clientKey !== e.clientKey));
+          setEditingKey((k) => (k === e.clientKey ? null : k));
+        }}
+        onOpenSlider={onOpenSlider}
+      />
+    ),
+    [editingKey, onOpenSlider, projectId, setEditingKey, setTimeline],
   );
+
+  const simpleList = useMemo(
+    () => timeline.map((e) => <Fragment key={e.clientKey}>{renderBlock(e)}</Fragment>),
+    [timeline, renderBlock],
+  );
+
+  return <div className="mt-4 space-y-4">{simpleList}</div>;
 }

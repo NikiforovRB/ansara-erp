@@ -16,7 +16,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import Image from "next/image";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DeadlineBlock } from "@/components/cells/deadline-block";
 import { PaymentBlock } from "@/components/cells/payment-block";
@@ -311,12 +311,14 @@ function SortableProjectRow({
     },
   });
 
-  const style = {
+  const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 2 : undefined,
-    position: "relative" as const,
+    position: "relative",
     opacity: isDragging ? 0.92 : 1,
+    contentVisibility: "auto",
+    containIntrinsicSize: "96px 800px",
   };
 
   const dragSrc = theme === "dark" ? dragBlack : dragIcon;
@@ -706,7 +708,9 @@ export function ProjectsSortableTable({
                     <SortableProjectRow
                       key={r.project.id}
                       row={r}
-                      withTopBorder={g.rows[0]?.project.id === r.project.id}
+                      withTopBorder={
+                        gi > 0 && g.rows[0]?.project.id === r.project.id
+                      }
                       onCustomer={() => setPanel({ kind: "customer", id: r.project.id })}
                       onDeadline={() => setPanel({ kind: "deadline", id: r.project.id })}
                       onPayments={() => setPanel({ kind: "payments", id: r.project.id })}

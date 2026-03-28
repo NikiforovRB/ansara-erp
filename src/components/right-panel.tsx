@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import type { ReactNode } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { PanelSkeleton } from "@/components/loading-skeleton";
 import { useTheme } from "@/components/theme-provider";
@@ -20,6 +21,10 @@ type Props = {
   footerStart?: React.ReactNode;
   /** Пока грузится контент модалки (первая загрузка) */
   contentLoading?: boolean;
+  /** Скелетон под конкретную модалку вместо общего PanelSkeleton */
+  loadingContent?: ReactNode;
+  /** Краткое сообщение об успехе / ошибке над контентом */
+  statusBanner?: { variant: "success" | "error"; message: string } | null;
   /** Пока выполняется сохранение */
   saving?: boolean;
 };
@@ -76,6 +81,8 @@ export function RightPanel({
   footer,
   footerStart,
   contentLoading = false,
+  loadingContent,
+  statusBanner = null,
   saving = false,
 }: Props) {
   const { theme } = useTheme();
@@ -210,7 +217,19 @@ export function RightPanel({
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-10 py-4">
-          {contentLoading ? <PanelSkeleton /> : children}
+          {!contentLoading && statusBanner ? (
+            <div
+              role="status"
+              className={`mb-4 rounded-lg px-3 py-2.5 text-sm ${
+                statusBanner.variant === "success"
+                  ? "bg-[#00B956]/15 text-[var(--foreground)]"
+                  : "bg-red-500/15 text-red-800 dark:text-red-200"
+              }`}
+            >
+              {statusBanner.message}
+            </div>
+          ) : null}
+          {contentLoading ? loadingContent ?? <PanelSkeleton /> : children}
         </div>
         {footer != null ? (
           <div

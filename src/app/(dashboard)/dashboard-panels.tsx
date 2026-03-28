@@ -19,6 +19,7 @@ import { CSS } from "@dnd-kit/utilities";
 import Image from "next/image";
 import type { ReactNode, RefObject } from "react";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { DeadlineBlock } from "@/components/cells/deadline-block";
 import { IconCheckbox } from "@/components/icon-checkbox";
 import { DatePickerField, MinimalDatePicker } from "@/components/minimal-date-picker";
@@ -28,6 +29,15 @@ import {
   sortTimelineDesc,
   type TlEntryEditor,
 } from "@/components/lk-editor-timeline";
+import {
+  CustomerPanelSkeleton,
+  DeadlinePanelSkeleton,
+  GroupsPanelSkeleton,
+  LkEditorPanelSkeleton,
+  MyProfilePanelSkeleton,
+  PaymentsPanelSkeleton,
+  SettingsPanelSkeleton,
+} from "@/components/loading-skeleton";
 import { RightPanel } from "@/components/right-panel";
 import { useTheme } from "@/components/theme-provider";
 import {
@@ -97,6 +107,15 @@ async function fetchJson(url: string, init?: RequestInit) {
   const res = await fetch(url, { credentials: "include", ...init });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
+}
+
+function ruProjectCountPhrase(n: number) {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m100 >= 11 && m100 <= 14) return `${n} проектов`;
+  if (m10 === 1) return `${n} проект`;
+  if (m10 >= 2 && m10 <= 4) return `${n} проекта`;
+  return `${n} проектов`;
 }
 
 function fieldClass(extra = "") {
@@ -508,9 +527,14 @@ export function AddProjectPanel({
   const [groupId, setGroupId] = useState("");
   const [groups, setGroups] = useState<{ id: string; title: string }[]>([]);
   const [busy, setBusy] = useState(false);
+  const [addProjectBanner, setAddProjectBanner] = useState<{
+    variant: "success" | "error";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    setAddProjectBanner(null);
     void (async () => {
       const j = await fetchJson("/api/project-groups").catch(() => ({ groups: [] }));
       setGroups(Array.isArray(j?.groups) ? j.groups : []);
@@ -538,7 +562,7 @@ export function AddProjectPanel({
       setShortDescription("");
       setGroupId("");
     } catch {
-      alert("Не удалось создать проект");
+      setAddProjectBanner({ variant: "error", message: "Не удалось создать проект" });
     } finally {
       setBusy(false);
     }
@@ -550,6 +574,7 @@ export function AddProjectPanel({
       title="Добавить проект"
       onClose={onClose}
       footer={btnFooter(onClose, save, busy || pin.length !== 4)}
+      statusBanner={addProjectBanner}
       saving={busy}
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -624,9 +649,14 @@ export function CustomerPanel({
   const [deleting, setDeleting] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [fetching, setFetching] = useState(false);
+  const [customerBanner, setCustomerBanner] = useState<{
+    variant: "success" | "error";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    setCustomerBanner(null);
     setData(null);
     setFetching(true);
     void (async () => {
@@ -703,7 +733,7 @@ export function CustomerPanel({
       onSaved();
       onClose();
     } catch {
-      alert("Ошибка сохранения");
+      setCustomerBanner({ variant: "error", message: "Не удалось сохранить изменения" });
     } finally {
       setBusy(false);
     }
@@ -718,7 +748,7 @@ export function CustomerPanel({
       onSaved();
       onClose();
     } catch {
-      alert("Ошибка удаления");
+      setCustomerBanner({ variant: "error", message: "Не удалось удалить проект" });
     } finally {
       setDeleting(false);
     }
@@ -761,10 +791,14 @@ export function CustomerPanel({
         }
         footerStart={p ? <ModalFooterStatusTabs value={status} onChange={setStatus} /> : null}
         contentLoading={fetching}
+        loadingContent={<CustomerPanelSkeleton />}
+        statusBanner={customerBanner}
         saving={busy || deleting}
       >
         {!p ? (
-          <p className="text-sm text-[var(--muted)]">Загрузка…</p>
+          fetching ? null : (
+            <p className="text-sm text-[var(--muted)]">Не удалось загрузить данные</p>
+          )
         ) : (
           <>
             <p
@@ -915,9 +949,14 @@ export function DeadlineFormPanel({
   const [customerName, setCustomerName] = useState("");
   const [busy, setBusy] = useState(false);
   const [fetching, setFetching] = useState(false);
+  const [deadlinePanelBanner, setDeadlinePanelBanner] = useState<{
+    variant: "success" | "error";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    setDeadlinePanelBanner(null);
     setFetching(true);
     void (async () => {
       const j = await fetchJson(`/api/projects/${projectId}`).catch(() => null);
@@ -1009,7 +1048,7 @@ export function DeadlineFormPanel({
       setCalendarPlanUrl(out.webpUrl || out.originalUrl);
       setCalendarPlanOriginalUrl(out.originalUrl || null);
     } catch {
-      alert("Ошибка");
+      setDeadlinePanelBanner({ variant: "error", message: "Не удалось загрузить изображение" });
       setCalendarPlanUploadingPct(null);
     } finally {
       setCalendarPlanBusy(false);
@@ -1027,7 +1066,7 @@ export function DeadlineFormPanel({
       setCalendarPlanOriginalUrl(null);
       setCalendarPlanFullscreen(false);
     } catch {
-      alert("Ошибка");
+      setDeadlinePanelBanner({ variant: "error", message: "Не удалось удалить изображение" });
     } finally {
       setCalendarPlanBusy(false);
     }
@@ -1049,19 +1088,27 @@ export function DeadlineFormPanel({
       onSaved();
       onClose();
     } catch {
-      alert("Ошибка");
+      setDeadlinePanelBanner({ variant: "error", message: "Не удалось сохранить изменения" });
     } finally {
       setBusy(false);
     }
   }
 
+  const calendarPlanFullscreenSrc =
+    calendarPlanOriginalUrl || calendarPlanUrl || "";
+  const calendarPlanLightboxOpen =
+    calendarPlanFullscreen && Boolean(calendarPlanFullscreenSrc);
+
   return (
+    <>
     <RightPanel
       open={open}
       title="Текущий дедлайн"
       onClose={onClose}
       footer={btnFooter(onClose, save, busy)}
       contentLoading={fetching}
+      loadingContent={<DeadlinePanelSkeleton />}
+      statusBanner={deadlinePanelBanner}
       saving={busy}
     >
       {customerName ? (
@@ -1236,39 +1283,43 @@ export function DeadlineFormPanel({
           </div>
         ) : null}
       </div>
-      {calendarPlanFullscreen && (calendarPlanOriginalUrl || calendarPlanUrl) ? (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 p-4"
-          role="presentation"
-          onClick={() => setCalendarPlanFullscreen(false)}
-        >
-          <button
-            type="button"
-            aria-label="Закрыть просмотр"
-            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95"
-            onClick={(e) => {
-              e.stopPropagation();
-              setCalendarPlanFullscreen(false);
-            }}
-          >
-            <Image
-              src={theme === "dark" ? closeBlack : closeIcon}
-              alt=""
-              width={16}
-              height={16}
-              unoptimized
-            />
-          </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={calendarPlanOriginalUrl || calendarPlanUrl || ""}
-            alt=""
-            className="max-h-[92vh] max-w-[96vw] object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      ) : null}
     </RightPanel>
+    {calendarPlanLightboxOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[300] flex items-center justify-center bg-black/30 p-4"
+            role="presentation"
+            onClick={() => setCalendarPlanFullscreen(false)}
+          >
+            <button
+              type="button"
+              aria-label="Закрыть просмотр"
+              className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95"
+              onClick={(e) => {
+                e.stopPropagation();
+                setCalendarPlanFullscreen(false);
+              }}
+            >
+              <Image
+                src={theme === "dark" ? closeBlack : closeIcon}
+                alt=""
+                width={16}
+                height={16}
+                unoptimized
+              />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={calendarPlanFullscreenSrc}
+              alt=""
+              className="max-h-[92vh] max-w-[96vw] object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>,
+          document.body,
+        )
+      : null}
+    </>
   );
 }
 
@@ -1453,9 +1504,14 @@ export function PaymentsFormPanel({
   const [fetching, setFetching] = useState(false);
   const [editLedger, setEditLedger] = useState<number | null>(null);
   const [editDoc, setEditDoc] = useState<number | null>(null);
+  const [paymentsPanelBanner, setPaymentsPanelBanner] = useState<{
+    variant: "success" | "error";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    setPaymentsPanelBanner(null);
     setEditLedger(null);
     setEditDoc(null);
     setFetching(true);
@@ -1591,7 +1647,7 @@ export function PaymentsFormPanel({
       onSaved();
       onClose();
     } catch {
-      alert("Ошибка");
+      setPaymentsPanelBanner({ variant: "error", message: "Не удалось сохранить изменения" });
     } finally {
       setBusy(false);
     }
@@ -1604,6 +1660,8 @@ export function PaymentsFormPanel({
       onClose={onClose}
       footer={btnFooter(onClose, save, busy)}
       contentLoading={fetching}
+      loadingContent={<PaymentsPanelSkeleton />}
+      statusBanner={paymentsPanelBanner}
       saving={busy}
     >
       {customerName ? (
@@ -2476,6 +2534,14 @@ export function LkEditorPanel({
   const [slider, setSlider] = useState<string[] | null>(null);
   const [sliderIdx, setSliderIdx] = useState(0);
   const [lkLoad, setLkLoad] = useState(false);
+  const [lkBanner, setLkBanner] = useState<{
+    variant: "success" | "error";
+    message: string;
+  } | null>(null);
+  const lastLkEditorFetchPidRef = useRef<string | null>(null);
+  const lkEditorEtagByProjectRef = useRef<Map<string, string>>(new Map());
+  const lkEditorPidRef = useRef(projectId);
+  lkEditorPidRef.current = projectId;
   const [timelineHasMore, setTimelineHasMore] = useState(false);
   const [timelineLoadingMore, setTimelineLoadingMore] = useState(false);
   const [timelineLoadedCount, setTimelineLoadedCount] = useState(0);
@@ -2631,55 +2697,112 @@ export function LkEditorPanel({
     setDeadlinePick(null);
     setTimelineEditKey(null);
     setStagesCommentOpen(false);
+    setLkBanner(null);
     setLkLoad(true);
+    const pid = projectId;
+    let cancelled = false;
     void (async () => {
-      const j = await fetchJson(`/api/projects/${projectId}?timelineLimit=10&timelineOffset=0`).catch(
-        () => null,
+      const can304 = lastLkEditorFetchPidRef.current === pid;
+      const etag = can304 ? lkEditorEtagByProjectRef.current.get(pid) : undefined;
+      const res = await fetch(
+        `/api/projects/${pid}/lk-editor?timelineLimit=10&timelineOffset=0`,
+        {
+          credentials: "include",
+          headers: etag ? { "If-None-Match": etag } : {},
+        },
       );
-      if (!j) {
+      if (cancelled || pid !== lkEditorPidRef.current) return;
+      if (res.status === 304) {
         setLkLoad(false);
         return;
       }
-      setLkTitle(j.project.lkTitle ?? "");
-      setCustomerName(j.project.customerName ?? "");
-      setStagesComment(
-        String((j.project as { lkStagesComment?: string | null }).lkStagesComment ?? ""),
-      );
-      const dl = j.deadline;
+      if (!res.ok) {
+        setLkLoad(false);
+        setLkBanner({ variant: "error", message: "Не удалось загрузить данные ЛК" });
+        return;
+      }
+      const nextEtag = res.headers.get("ETag");
+      if (nextEtag) lkEditorEtagByProjectRef.current.set(pid, nextEtag);
+      lastLkEditorFetchPidRef.current = pid;
+      let j: Record<string, unknown>;
+      try {
+        j = (await res.json()) as Record<string, unknown>;
+      } catch {
+        setLkLoad(false);
+        setLkBanner({ variant: "error", message: "Не удалось загрузить данные ЛК" });
+        return;
+      }
+      if (cancelled || pid !== lkEditorPidRef.current) return;
+      const proj = j.project as {
+        lkTitle?: string;
+        customerName?: string;
+        lkShowDeadline?: boolean;
+        lkShowPayments?: boolean;
+        remainingAmountRubles?: number;
+        lkStagesComment?: string | null;
+      };
+      setLkTitle(proj.lkTitle ?? "");
+      setCustomerName(proj.customerName ?? "");
+      setStagesComment(String(proj.lkStagesComment ?? ""));
+      const dl = j.deadline as
+        | { startAt?: string | null; endAt?: string | null; comment?: string | null }
+        | null
+        | undefined;
       setStart(dl?.startAt ? formatDateYmdLocal(new Date(dl.startAt)) : "");
       setEnd(dl?.endAt ? formatDateYmdLocal(new Date(dl.endAt)) : "");
-      setLkShowDeadline(j.project.lkShowDeadline !== false);
+      setLkShowDeadline(proj.lkShowDeadline !== false);
       setDcomment(dl?.comment ?? "");
 
-      const led = (j.payments?.ledger ?? []) as { amountRubles: number }[];
+      const pay = j.payments as
+        | {
+            ledger?: { amountRubles: number }[];
+            textBlocks?: { id?: string; body: string | null; color: PaymentTextBlockState }[];
+          }
+        | undefined;
+      const led = pay?.ledger ?? [];
       setPaid(led.reduce((s, r) => s + r.amountRubles, 0));
-      setRemaining((j.project as { remainingAmountRubles?: number }).remainingAmountRubles ?? 0);
-      setLkShowPayments(j.project?.lkShowPayments !== false);
+      setRemaining(proj.remainingAmountRubles ?? 0);
+      setLkShowPayments(proj.lkShowPayments !== false);
       setPayBlocks(
-        (j.payments?.textBlocks ?? []).map(
-          (b: { id?: string; body: string | null; color: PaymentTextBlockState }) => ({
-            id: String(b.id ?? nanoid()),
-            body: b.body,
-            color: b.color,
-          }),
-        ),
+        (pay?.textBlocks ?? []).map((b) => ({
+          id: String(b.id ?? nanoid()),
+          body: b.body,
+          color: b.color,
+        })),
       );
 
+      const tl = j.timeline as {
+        entries: {
+          id: string;
+          entryDate: string;
+          title: string;
+          description?: string | null;
+        }[];
+        images: {
+          entryId: string;
+          originalKey: string;
+          webpKey: string;
+          webpUrl?: string | null;
+          originalUrl?: string | null;
+        }[];
+        links: { entryId: string; url: string; linkTitle: string }[];
+      };
+
       const loadedTimeline = toTimelineEditors(
-        j.timeline.entries as {
+        tl.entries as {
           id: string;
           entryDate: string;
           title: string;
           description?: string | null;
         }[],
-        j.timeline.images as {
+        tl.images as {
           entryId: string;
           originalKey: string;
           webpKey: string;
           webpUrl?: string | null;
           originalUrl?: string | null;
         }[],
-        j.timeline.links as { entryId: string; url: string; linkTitle: string }[],
+        tl.links as { entryId: string; url: string; linkTitle: string }[],
       );
       setTimeline(loadedTimeline);
       setTimelineLoadedCount(loadedTimeline.length);
@@ -2687,11 +2810,12 @@ export function LkEditorPanel({
 
       const stOrder: string[] = [];
       const stMap = new Map<string, StRow>();
-      for (const s of j.stages as { id: string; title: string }[]) {
+      const stagesArr = (j.stages ?? []) as { id: string; title: string }[];
+      for (const s of stagesArr) {
         stOrder.push(s.id);
         stMap.set(s.id, { id: s.id, title: s.title, tasks: [] });
       }
-      for (const t of j.stageTasks as {
+      for (const t of (j.stageTasks ?? []) as {
         id?: string;
         stageId: string;
         description: string;
@@ -2713,6 +2837,9 @@ export function LkEditorPanel({
       initialStagesRef.current = JSON.stringify(normalizeStagesForSave(loadedStages));
       setLkLoad(false);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [open, projectId, normalizeStagesForSave, normalizeTimelineForSave, toTimelineEditors]);
 
   async function loadMoreTimeline() {
@@ -2926,10 +3053,16 @@ export function LkEditorPanel({
             : {}),
         }),
       });
+      lkEditorEtagByProjectRef.current.delete(projectId);
+      lastLkEditorFetchPidRef.current = null;
+      setLkBanner({ variant: "success", message: "Изменения сохранены" });
       onSaved();
-      onClose();
+      window.setTimeout(() => {
+        setLkBanner(null);
+        onClose();
+      }, 650);
     } catch {
-      alert("Ошибка");
+      setLkBanner({ variant: "error", message: "Не удалось сохранить изменения" });
     } finally {
       setBusy(false);
     }
@@ -2943,6 +3076,8 @@ export function LkEditorPanel({
         onClose={onClose}
         footer={btnFooter(onClose, save, busy)}
         contentLoading={lkLoad}
+        loadingContent={<LkEditorPanelSkeleton />}
+        statusBanner={lkBanner}
         saving={busy}
       >
         {customerName ? (
@@ -3317,7 +3452,8 @@ export function SettingsPanel({
       sortOrder: number;
     }[]
   >([]);
-  const [userOrder, setUserOrder] = useState<string[]>([]);
+  const [userOrderActive, setUserOrderActive] = useState<string[]>([]);
+  const [userOrderInactive, setUserOrderInactive] = useState<string[]>([]);
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -3326,18 +3462,34 @@ export function SettingsPanel({
   const userSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
+  const userOrdersRef = useRef({ active: [] as string[], inactive: [] as string[] });
+  userOrdersRef.current.active = userOrderActive;
+  userOrdersRef.current.inactive = userOrderInactive;
+  const [settingsLoad, setSettingsLoad] = useState(false);
+  const [settingsOrderBanner, setSettingsOrderBanner] = useState<{
+    variant: "success" | "error";
+    message: string;
+  } | null>(null);
 
-  async function reload() {
-    const j = await fetchJson("/api/users?all=1").catch(() => ({ users: [] }));
-    const rows = j.users ?? [];
-    setUsers(rows);
-    setUserOrder(rows.map((u: { id: string }) => u.id));
-  }
+  const reload = useCallback(async () => {
+    setSettingsLoad(true);
+    try {
+      const j = await fetchJson("/api/users?all=1").catch(() => ({ users: [] }));
+      const full = (j.users ?? []) as typeof users;
+      setUsers(full);
+      const sorted = [...full].sort((a, b) => a.sortOrder - b.sortOrder);
+      setUserOrderActive(sorted.filter((u) => u.isActive).map((u) => u.id));
+      setUserOrderInactive(sorted.filter((u) => !u.isActive).map((u) => u.id));
+    } finally {
+      setSettingsLoad(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!open) return;
+    setSettingsOrderBanner(null);
     void reload();
-  }, [open]);
+  }, [open, reload]);
 
   async function addUser() {
     if (!login.trim() || !password || !firstName.trim()) {
@@ -3366,32 +3518,95 @@ export function SettingsPanel({
     }
   }
 
-  function onUsersDragEnd(e: DragEndEvent) {
+  function onActiveUsersDragEnd(e: DragEndEvent) {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
-    setUserOrder((prev) => {
+    const rbA = [...userOrdersRef.current.active];
+    const rbI = [...userOrdersRef.current.inactive];
+    setUserOrderActive((prev) => {
       const oi = prev.indexOf(String(active.id));
       const ni = prev.indexOf(String(over.id));
       if (oi < 0 || ni < 0) return prev;
       const next = arrayMove(prev, oi, ni);
-      void fetchJson("/api/users/order", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderedIds: next }),
-      }).catch(() => null);
+      const merged = [...next, ...rbI];
+      void (async () => {
+        try {
+          const res = await fetch("/api/users/order", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ orderedIds: merged }),
+          });
+          if (!res.ok) throw new Error(await res.text());
+        } catch {
+          setUserOrderActive(rbA);
+          setUserOrderInactive(rbI);
+          setSettingsOrderBanner({
+            variant: "error",
+            message: "Не удалось сохранить порядок пользователей",
+          });
+        }
+      })();
       return next;
     });
   }
+
+  function onInactiveUsersDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const rbA = [...userOrdersRef.current.active];
+    const rbI = [...userOrdersRef.current.inactive];
+    setUserOrderInactive((prev) => {
+      const oi = prev.indexOf(String(active.id));
+      const ni = prev.indexOf(String(over.id));
+      if (oi < 0 || ni < 0) return prev;
+      const next = arrayMove(prev, oi, ni);
+      const merged = [...rbA, ...next];
+      void (async () => {
+        try {
+          const res = await fetch("/api/users/order", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ orderedIds: merged }),
+          });
+          if (!res.ok) throw new Error(await res.text());
+        } catch {
+          setUserOrderActive(rbA);
+          setUserOrderInactive(rbI);
+          setSettingsOrderBanner({
+            variant: "error",
+            message: "Не удалось сохранить порядок пользователей",
+          });
+        }
+      })();
+      return next;
+    });
+  }
+
   const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
-  const orderedUsers = useMemo(() => {
-    const out = userOrder.map((id) => userMap.get(id)).filter(Boolean) as typeof users;
-    const missing = users.filter((u) => !userOrder.includes(u.id));
+  const orderedActiveUsers = useMemo(() => {
+    const out = userOrderActive.map((id) => userMap.get(id)).filter(Boolean) as typeof users;
+    const missing = users.filter((u) => u.isActive && !userOrderActive.includes(u.id));
     return [...out, ...missing];
-  }, [users, userOrder, userMap]);
+  }, [users, userOrderActive, userMap]);
+  const orderedInactiveUsers = useMemo(() => {
+    const out = userOrderInactive.map((id) => userMap.get(id)).filter(Boolean) as typeof users;
+    const missing = users.filter((u) => !u.isActive && !userOrderInactive.includes(u.id));
+    return [...out, ...missing];
+  }, [users, userOrderInactive, userMap]);
 
   return (
-    <RightPanel open={open} title="Настройки" onClose={onClose}>
-      <div className="text-sm font-medium">Новый пользователь</div>
+    <RightPanel
+      open={open}
+      title="Настройки"
+      onClose={onClose}
+      contentLoading={settingsLoad}
+      loadingContent={<SettingsPanelSkeleton />}
+      statusBanner={settingsOrderBanner}
+    >
+      <div className="pb-[50px]">
+      <div className="text-base font-medium text-[var(--foreground)]">Новый пользователь</div>
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <SettingsField label="Логин" className="min-w-[7rem] max-w-[10rem]">
           <input className={fieldClass("w-full")} value={login} onChange={(e) => setLogin(e.target.value)} />
@@ -3423,21 +3638,61 @@ export function SettingsPanel({
         <SettingsPlusButton onClick={() => void addUser()} />
       </div>
 
-      <div className="mt-10 space-y-8">
+      <div className="mt-10 space-y-0">
+        <h3 className="mt-[50px] mb-[10px] text-base font-medium text-[var(--foreground)]">
+          Активные пользователи
+        </h3>
         <DndContext
           sensors={userSensors}
           collisionDetection={closestCenter}
-          onDragEnd={onUsersDragEnd}
+          onDragEnd={onActiveUsersDragEnd}
         >
           <SortableContext
-            items={orderedUsers.map((u) => u.id)}
+            items={orderedActiveUsers.map((u) => u.id)}
             strategy={verticalListSortingStrategy}
           >
-            {orderedUsers.map((u) => (
-              <UserRow key={u.id} u={u} onChange={() => void reload()} />
-            ))}
+            <div className="mt-0 space-y-3">
+              {orderedActiveUsers.map((u, i) => (
+                <UserRow
+                  key={u.id}
+                  u={u}
+                  onChange={() => void reload()}
+                  rowPosition={{ isFirst: i === 0 }}
+                />
+              ))}
+            </div>
           </SortableContext>
         </DndContext>
+
+        {orderedInactiveUsers.length > 0 ? (
+          <>
+            <h3 className="mt-[50px] mb-[10px] text-base font-medium text-[var(--foreground)]">
+              Неактивные пользователи
+            </h3>
+            <DndContext
+              sensors={userSensors}
+              collisionDetection={closestCenter}
+              onDragEnd={onInactiveUsersDragEnd}
+            >
+              <SortableContext
+                items={orderedInactiveUsers.map((u) => u.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="mt-0 space-y-3">
+                  {orderedInactiveUsers.map((u, i) => (
+                    <UserRow
+                      key={u.id}
+                      u={u}
+                      onChange={() => void reload()}
+                      rowPosition={{ isFirst: i === 0 }}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </>
+        ) : null}
+      </div>
       </div>
     </RightPanel>
   );
@@ -3456,21 +3711,31 @@ export function GroupsPanel({
   onToggleGrouped: (next: boolean) => void;
   onSaved: () => void;
 }) {
-  const { theme } = useTheme();
   const [groups, setGroups] = useState<{ id: string; title: string; sortOrder: number }[]>([]);
   const [order, setOrder] = useState<string[]>([]);
   const [newTitle, setNewTitle] = useState("");
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const [groupsLoad, setGroupsLoad] = useState(false);
+  const [groupsBanner, setGroupsBanner] = useState<{
+    variant: "success" | "error";
+    message: string;
+  } | null>(null);
 
   const reload = useCallback(async () => {
-    const j = await fetchJson("/api/project-groups").catch(() => ({ groups: [] }));
-    const rows = (j.groups ?? []) as { id: string; title: string; sortOrder: number }[];
-    setGroups(rows);
-    setOrder(rows.map((g) => g.id));
+    setGroupsLoad(true);
+    try {
+      const j = await fetchJson("/api/project-groups").catch(() => ({ groups: [] }));
+      const rows = (j.groups ?? []) as { id: string; title: string; sortOrder: number }[];
+      setGroups(rows);
+      setOrder(rows.map((g) => g.id));
+    } finally {
+      setGroupsLoad(false);
+    }
   }, []);
 
   useEffect(() => {
     if (!open) return;
+    setGroupsBanner(null);
     void reload();
   }, [open, reload]);
 
@@ -3483,14 +3748,18 @@ export function GroupsPanel({
 
   async function addGroup() {
     if (!newTitle.trim()) return;
-    await fetchJson("/api/project-groups", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: newTitle.trim() }),
-    }).catch(() => null);
-    setNewTitle("");
-    await reload();
-    onSaved();
+    try {
+      await fetchJson("/api/project-groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle.trim() }),
+      });
+      setNewTitle("");
+      await reload();
+      onSaved();
+    } catch {
+      setGroupsBanner({ variant: "error", message: "Не удалось создать группу" });
+    }
   }
 
   function onDragEnd(e: DragEndEvent) {
@@ -3500,18 +3769,36 @@ export function GroupsPanel({
       const oi = prev.indexOf(String(active.id));
       const ni = prev.indexOf(String(over.id));
       if (oi < 0 || ni < 0) return prev;
+      const rollback = prev;
       const next = arrayMove(prev, oi, ni);
-      void fetchJson("/api/project-groups/order", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderedIds: next }),
-      }).then(() => onSaved()).catch(() => null);
+      void (async () => {
+        try {
+          const res = await fetch("/api/project-groups/order", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ orderedIds: next }),
+          });
+          if (!res.ok) throw new Error(await res.text());
+          onSaved();
+        } catch {
+          setOrder(rollback);
+          setGroupsBanner({ variant: "error", message: "Не удалось сохранить порядок групп" });
+        }
+      })();
       return next;
     });
   }
 
   return (
-    <RightPanel open={open} title="Группы" onClose={onClose}>
+    <RightPanel
+      open={open}
+      title="Группы"
+      onClose={onClose}
+      contentLoading={groupsLoad}
+      loadingContent={<GroupsPanelSkeleton />}
+      statusBanner={groupsBanner}
+    >
       <div className="mb-6">
         <div className="block">
           <SettingsLbl>Режим отображения</SettingsLbl>
@@ -3522,42 +3809,24 @@ export function GroupsPanel({
         >
           <button
             type="button"
-            className={`rounded-lg px-3 py-2 text-sm transition-colors ${
+            className={`rounded-lg px-4 py-2 text-xs transition-colors ${
               !groupedEnabled
-                ? "text-white"
+                ? "text-[var(--foreground)]"
                 : "text-[var(--muted)] hover:text-[#5A86EE]"
             }`}
-            style={
-              !groupedEnabled
-                ? {
-                    backgroundColor:
-                      theme === "dark"
-                        ? "color-mix(in srgb, #5A86EE 70%, black)"
-                        : "color-mix(in srgb, #5A86EE 70%, white)",
-                  }
-                : undefined
-            }
+            style={!groupedEnabled ? { backgroundColor: "rgb(0 0 0 / 12%)" } : undefined}
             onClick={() => onToggleGrouped(false)}
           >
             Показывать без группировки
           </button>
           <button
             type="button"
-            className={`rounded-lg px-3 py-2 text-sm transition-colors ${
+            className={`rounded-lg px-4 py-2 text-xs transition-colors ${
               groupedEnabled
-                ? "text-white"
+                ? "text-[var(--foreground)]"
                 : "text-[var(--muted)] hover:text-[#5A86EE]"
             }`}
-            style={
-              groupedEnabled
-                ? {
-                    backgroundColor:
-                      theme === "dark"
-                        ? "color-mix(in srgb, #5A86EE 70%, black)"
-                        : "color-mix(in srgb, #5A86EE 70%, white)",
-                  }
-                : undefined
-            }
+            style={groupedEnabled ? { backgroundColor: "rgb(0 0 0 / 12%)" } : undefined}
             onClick={() => onToggleGrouped(true)}
           >
             Показывать с группировкой
@@ -3577,12 +3846,19 @@ export function GroupsPanel({
         <SettingsPlusButton onClick={() => void addGroup()} />
       </div>
 
-      <div className="mt-6">
+      <h3 className="mt-[50px] text-sm font-medium text-[var(--foreground)]">Добавленные группы</h3>
+      <div className="mt-2">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={ordered.map((g) => g.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-3">
               {ordered.map((g) => (
-                <GroupRow key={g.id} group={g} onSaved={() => void reload()} onChanged={onSaved} />
+                <GroupRow
+                  key={g.id}
+                  group={g}
+                  onSaved={() => void reload()}
+                  onChanged={onSaved}
+                  onGroupError={(msg) => setGroupsBanner({ variant: "error", message: msg })}
+                />
               ))}
             </div>
           </SortableContext>
@@ -3596,10 +3872,12 @@ function GroupRow({
   group,
   onSaved,
   onChanged,
+  onGroupError,
 }: {
   group: { id: string; title: string };
   onSaved: () => void;
   onChanged: () => void;
+  onGroupError?: (message: string) => void;
 }) {
   const { theme } = useTheme();
   const drag = useSortable({ id: group.id });
@@ -3627,20 +3905,40 @@ function GroupRow({
   }
 
   async function removeGroup() {
-    if (!confirm("Удалить группу?")) return;
-    await fetchJson(`/api/project-groups/${group.id}`, { method: "DELETE" }).catch(() => null);
-    onSaved();
-    onChanged();
+    let projectCount = 0;
+    try {
+      const res = await fetch(`/api/project-groups/${group.id}/usage`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const j = (await res.json()) as { projectCount?: number };
+        projectCount = j.projectCount ?? 0;
+      }
+    } catch {
+      /* ignore */
+    }
+    const question =
+      projectCount > 0
+        ? `Удалить группу? Сейчас в ней ${ruProjectCountPhrase(projectCount)}. Они останутся без группы.`
+        : "Удалить группу?";
+    if (!window.confirm(question)) return;
+    try {
+      await fetchJson(`/api/project-groups/${group.id}`, { method: "DELETE" });
+      onSaved();
+      onChanged();
+    } catch {
+      onGroupError?.("Не удалось удалить группу");
+    }
   }
 
   return (
     <div
       ref={drag.setNodeRef}
       style={dragStyle}
-      className="flex items-center gap-2 rounded-lg p-2"
+      className="flex items-center gap-2 rounded-lg py-2 pl-0 pr-2"
     >
       <input
-        className={fieldClass("flex-1")}
+        className={fieldClass("flex-1 pl-0")}
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         onBlur={() => void saveTitle()}
@@ -3662,6 +3960,7 @@ function GroupRow({
 function UserRow({
   u,
   onChange,
+  rowPosition,
 }: {
   u: {
     id: string;
@@ -3674,6 +3973,7 @@ function UserRow({
     avatarUrl: string | null;
   };
   onChange: () => void;
+  rowPosition?: { isFirst: boolean };
 }) {
   const { theme } = useTheme();
   const [login, setLogin] = useState(u.login);
@@ -3683,6 +3983,7 @@ function UserRow({
   const [isActive, setIsActive] = useState(u.isActive);
   const [pwd, setPwd] = useState("");
   const [savedMsg, setSavedMsg] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const drag = useSortable({ id: u.id });
   const dragStyle = {
     transform: CSS.Transform.toString(drag.transform),
@@ -3698,6 +3999,7 @@ function UserRow({
     setIsActive(u.isActive);
     setPwd("");
     setSavedMsg(false);
+    setActionError(null);
   }, [u]);
   const dirty =
     login !== u.login ||
@@ -3708,6 +4010,7 @@ function UserRow({
     pwd.trim().length > 0;
 
   async function save() {
+    setActionError(null);
     try {
       await fetchJson(`/api/users/${u.id}`, {
         method: "PATCH",
@@ -3725,23 +4028,25 @@ function UserRow({
       window.setTimeout(() => setSavedMsg(false), 1800);
       onChange();
     } catch {
-      alert("Ошибка сохранения");
+      setActionError("Не удалось сохранить изменения");
     }
   }
 
   async function remove() {
     if (!confirm("Удалить пользователя?")) return;
+    setActionError(null);
     try {
       await fetchJson(`/api/users/${u.id}`, { method: "DELETE" });
       onChange();
     } catch {
-      alert("Нельзя удалить");
+      setActionError("Нельзя удалить пользователя");
     }
   }
 
   async function avatar(ev: { target: HTMLInputElement }) {
     const f = ev.target.files?.[0];
     if (!f) return;
+    setActionError(null);
     const fd = new FormData();
     fd.set("file", f);
     const res = await fetch(`/api/users/${u.id}/avatar`, {
@@ -3749,7 +4054,7 @@ function UserRow({
       body: fd,
       credentials: "include",
     });
-    if (!res.ok) alert("Аватар не загружен");
+    if (!res.ok) setActionError("Не удалось загрузить аватар");
     else onChange();
     ev.target.value = "";
   }
@@ -3758,9 +4063,11 @@ function UserRow({
     <div
       ref={drag.setNodeRef}
       style={dragStyle}
-      className="border-b border-[var(--foreground)]/10 pb-8 last:border-b-0 last:pb-0"
+      className={`w-full border-b border-[var(--foreground)]/10 py-2 ${
+        rowPosition?.isFirst ? "border-t border-[var(--foreground)]/10" : ""
+      }`}
     >
-      <div className="flex flex-wrap items-start gap-3">
+      <div className="flex w-full min-w-0 items-start gap-3">
         <label className="relative flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-[var(--foreground)]/10 text-center text-[10px] leading-tight text-[var(--muted)]">
           {u.avatarUrl ? (
             <Image src={u.avatarUrl} alt="" fill className="object-cover" unoptimized sizes="56px" />
@@ -3769,79 +4076,91 @@ function UserRow({
           )}
           <input type="file" accept="image/*" className="hidden" onChange={(e) => void avatar(e)} />
         </label>
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <div className="flex min-w-0 flex-wrap items-end gap-2">
-            <SettingsField label="Логин" className="min-w-[7rem] max-w-[10rem]">
-              <input className={fieldClass("w-full")} value={login} onChange={(e) => setLogin(e.target.value)} />
-            </SettingsField>
-            <SettingsField label="Пароль" className="min-w-[7rem] max-w-[10rem]">
-              <input
-                className={fieldClass("w-full")}
-                placeholder="Новый пароль"
-                type="password"
-                value={pwd}
-                onChange={(e) => setPwd(e.target.value)}
-              />
-            </SettingsField>
-            <SettingsField label="Имя" className="min-w-[6rem] max-w-[9rem]">
-              <input className={fieldClass("w-full")} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-            </SettingsField>
-            <SettingsField label="Фамилия" className="min-w-[6rem] max-w-[9rem]">
-              <input className={fieldClass("w-full")} value={lastName} onChange={(e) => setLastName(e.target.value)} />
-            </SettingsField>
-            <SettingsField label="Роль" className="min-w-[8.5rem] max-w-[11rem]">
-              <select
-                className={fieldClass("w-full")}
-                value={role}
-                onChange={(e) => setRole(e.target.value as "admin" | "employee")}
-              >
-                <option value="employee">Сотрудник</option>
-                <option value="admin">Администратор</option>
-              </select>
-            </SettingsField>
-            <div className="flex flex-col gap-0.5">
-              <SettingsLbl>Статус</SettingsLbl>
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex w-full min-w-0 items-end gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-end gap-x-2 gap-y-2">
+              <SettingsField label="Логин" className="min-w-[6.5rem] flex-1 basis-[7.5rem]">
+                <input className={fieldClass("w-full")} value={login} onChange={(e) => setLogin(e.target.value)} />
+              </SettingsField>
+              <SettingsField label="Пароль" className="min-w-[6.5rem] flex-1 basis-[7.5rem]">
+                <input
+                  className={fieldClass("w-full")}
+                  placeholder="Новый пароль"
+                  type="password"
+                  value={pwd}
+                  onChange={(e) => setPwd(e.target.value)}
+                />
+              </SettingsField>
+              <SettingsField label="Имя" className="min-w-[5.5rem] flex-1 basis-[6.5rem]">
+                <input
+                  className={fieldClass("w-full")}
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                />
+              </SettingsField>
+              <SettingsField label="Фамилия" className="min-w-[5.5rem] flex-1 basis-[6.5rem]">
+                <input
+                  className={fieldClass("w-full")}
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                />
+              </SettingsField>
+              <SettingsField label="Роль" className="min-w-[7rem] flex-1 basis-[8rem]">
+                <select
+                  className={fieldClass("w-full")}
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as "admin" | "employee")}
+                >
+                  <option value="employee">Сотрудник</option>
+                  <option value="admin">Администратор</option>
+                </select>
+              </SettingsField>
+            </div>
+            <div className="flex shrink-0 items-end gap-2">
+              <div className="flex flex-col gap-0.5">
+                <SettingsLbl>Статус</SettingsLbl>
+                <button
+                  type="button"
+                  className="group relative inline-flex h-9 w-9 items-center justify-center rounded"
+                  aria-label={isActive ? "Активный" : "Неактивный"}
+                  onClick={() => setIsActive((v) => !v)}
+                >
+                  <Image
+                    src={
+                      isActive
+                        ? theme === "dark"
+                          ? eyeBlack
+                          : eyeIcon
+                        : eyeOff
+                    }
+                    alt=""
+                    width={20}
+                    height={20}
+                    unoptimized
+                    className="transition-opacity duration-200 group-hover:opacity-0"
+                  />
+                  <Image
+                    src={isActive ? eyeNav : eyeOffNav}
+                    alt=""
+                    width={20}
+                    height={20}
+                    unoptimized
+                    className="absolute opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                  />
+                </button>
+              </div>
               <button
                 type="button"
-                className="group relative inline-flex h-9 w-9 items-center justify-center rounded"
-                aria-label={isActive ? "Активный" : "Неактивный"}
-                onClick={() => setIsActive((v) => !v)}
+                className="mb-px cursor-grab touch-none p-1 text-[var(--muted)] active:cursor-grabbing"
+                aria-label="Перетащить сотрудника"
+                {...drag.attributes}
+                {...drag.listeners}
               >
-                <Image
-                  src={
-                    isActive
-                      ? theme === "dark"
-                        ? eyeBlack
-                        : eyeIcon
-                      : eyeOff
-                  }
-                  alt=""
-                  width={20}
-                  height={20}
-                  unoptimized
-                  className="transition-opacity duration-200 group-hover:opacity-0"
-                />
-                <Image
-                  src={isActive ? eyeNav : eyeOffNav}
-                  alt=""
-                  width={20}
-                  height={20}
-                  unoptimized
-                  className="absolute opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-                />
+                <Image src={theme === "dark" ? dragBlack : dragIcon} alt="" width={16} height={16} unoptimized />
               </button>
             </div>
-            <button
-              type="button"
-              className="mt-5 cursor-grab touch-none p-1 text-[var(--muted)] active:cursor-grabbing"
-              aria-label="Перетащить сотрудника"
-              {...drag.attributes}
-              {...drag.listeners}
-            >
-              <Image src={theme === "dark" ? dragBlack : dragIcon} alt="" width={16} height={16} unoptimized />
-            </button>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-3">
             <SettingsSaveButton onClick={() => void save()} />
             <SettingsDeleteButton onClick={() => void remove()} />
           </div>
@@ -3851,6 +4170,7 @@ function UserRow({
             </p>
           ) : null}
           {savedMsg ? <p className="text-xs text-[#00B956]">Все изменения сохранены</p> : null}
+          {actionError ? <p className="text-xs text-red-600 dark:text-red-400">{actionError}</p> : null}
         </div>
       </div>
     </div>
@@ -3886,9 +4206,14 @@ export function MyProfilePanel({
   const [pick, setPick] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [profileLoad, setProfileLoad] = useState(false);
+  const [profileBanner, setProfileBanner] = useState<{
+    variant: "success" | "error";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    setProfileBanner(null);
     setPick(null);
     setPreviewUrl(null);
     setPwd("");
@@ -3966,7 +4291,7 @@ export function MyProfilePanel({
       onSaved();
       onClose();
     } catch {
-      alert("Не удалось сохранить");
+      setProfileBanner({ variant: "error", message: "Не удалось сохранить профиль" });
     } finally {
       setBusy(false);
     }
@@ -3981,6 +4306,8 @@ export function MyProfilePanel({
       onClose={onClose}
       footer={btnFooter(onClose, save, busy || !me)}
       contentLoading={profileLoad}
+      loadingContent={<MyProfilePanelSkeleton />}
+      statusBanner={profileBanner}
       saving={busy}
     >
       {!me ? (

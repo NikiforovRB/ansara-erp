@@ -22,6 +22,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DatePickerField } from "@/components/minimal-date-picker";
 import { formatRuDayMonthWeekday } from "@/lib/dates";
 import { IconCheckbox } from "@/components/icon-checkbox";
+import { BacklogPanelSkeleton } from "@/components/loading-skeleton";
 import { RightPanel } from "@/components/right-panel";
 import { useTheme } from "@/components/theme-provider";
 import addDocumentBlack from "@/icons/add-document-black.svg";
@@ -429,6 +430,7 @@ export function BacklogFormPanel({
       onClose={onClose}
       footer={btnFooter(onClose, save, busy)}
       contentLoading={fetching}
+      loadingContent={<BacklogPanelSkeleton />}
       saving={busy}
     >
       {customerName ? (

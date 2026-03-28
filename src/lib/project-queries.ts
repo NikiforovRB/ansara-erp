@@ -302,6 +302,103 @@ export async function getProjectFull(
   };
 }
 
+/** LK editor panel: same timeline/stages/payments as full load, без документов и бэклога. */
+export async function getProjectLkEditorData(
+  projectId: string,
+  opts?: { timelineLimit?: number; timelineOffset?: number },
+) {
+  await ensureBacklogListColumns();
+  await ensureTimelineDescriptionAndStagesComment();
+
+  const [project] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  if (!project) return null;
+
+  const [deadline] = await db
+    .select()
+    .from(projectDeadlines)
+    .where(eq(projectDeadlines.projectId, projectId))
+    .limit(1);
+
+  const timelineLimit = opts?.timelineLimit;
+  const timelineOffset = opts?.timelineOffset ?? 0;
+
+  const entriesQuery = db
+    .select()
+    .from(timelineEntries)
+    .where(eq(timelineEntries.projectId, projectId))
+    .orderBy(desc(timelineEntries.entryDate), asc(timelineEntries.sortOrder))
+    .$dynamic();
+
+  if (timelineLimit && timelineLimit > 0) {
+    entriesQuery.limit(timelineLimit).offset(Math.max(0, timelineOffset));
+  }
+
+  const entries = await entriesQuery;
+  const [timelineCountRow] = await db
+    .select({
+      count: sql<number>`count(*)::int`.mapWith(Number),
+    })
+    .from(timelineEntries)
+    .where(eq(timelineEntries.projectId, projectId));
+
+  const entryIds = entries.map((e) => e.id);
+  let images: (typeof timelineImages.$inferSelect)[] = [];
+  let links: (typeof timelineLinks.$inferSelect)[] = [];
+  if (entryIds.length) {
+    images = await db
+      .select()
+      .from(timelineImages)
+      .where(inArray(timelineImages.entryId, entryIds))
+      .orderBy(asc(timelineImages.sortOrder));
+    links = await db
+      .select()
+      .from(timelineLinks)
+      .where(inArray(timelineLinks.entryId, entryIds))
+      .orderBy(asc(timelineLinks.sortOrder));
+  }
+
+  const stagesRows = await db
+    .select()
+    .from(stages)
+    .where(eq(stages.projectId, projectId))
+    .orderBy(asc(stages.sortOrder));
+
+  const stageIds = stagesRows.map((s) => s.id);
+  let tasks: (typeof stageTasks.$inferSelect)[] = [];
+  if (stageIds.length) {
+    tasks = await db
+      .select()
+      .from(stageTasks)
+      .where(inArray(stageTasks.stageId, stageIds))
+      .orderBy(asc(stageTasks.sortOrder));
+  }
+
+  const ledger = await db
+    .select()
+    .from(paymentLedger)
+    .where(eq(paymentLedger.projectId, projectId))
+    .orderBy(desc(paymentLedger.paymentDate));
+
+  const blocks = await db
+    .select()
+    .from(paymentTextBlocks)
+    .where(eq(paymentTextBlocks.projectId, projectId))
+    .orderBy(asc(paymentTextBlocks.sortOrder));
+
+  return {
+    project,
+    deadline: deadline ?? null,
+    timeline: { entries, images, links, total: timelineCountRow?.count ?? 0 },
+    stages: stagesRows,
+    stageTasks: tasks,
+    payments: { ledger, textBlocks: blocks },
+  };
+}
+
 export async function getProjectBySlug(slug: string) {
   const [p] = await db
     .select()

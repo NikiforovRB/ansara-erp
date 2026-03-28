@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { TableSkeleton } from "@/components/loading-skeleton";
+import { DashboardMainTableSkeleton } from "@/components/loading-skeleton";
 import { xhrGetJsonWithProgress } from "@/lib/xhr-get-json";
 import { AppHeader as Header, type HeaderUser } from "@/components/app-header";
 import {
@@ -87,6 +87,17 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
   }, [refresh]);
 
   useEffect(() => {
+    if (loading) return;
+    const slugs = rows
+      .slice(0, 14)
+      .map((r) => r.project.slug)
+      .filter((s): s is string => Boolean(s?.trim()));
+    for (const slug of slugs) {
+      router.prefetch(`/lk/${slug}`);
+    }
+  }, [loading, rows, router]);
+
+  useEffect(() => {
     try {
       const raw = window.localStorage.getItem("ansara.showBacklogColumn");
       if (raw === "0") setShowBacklogColumn(false);
@@ -145,7 +156,7 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
 
       <div className="overflow-x-auto px-[40px] pb-8 pt-[26px]">
         {loading ? (
-          <TableSkeleton />
+          <DashboardMainTableSkeleton showBacklogColumn={showBacklogColumn} />
         ) : (
           <ProjectsSortableTable
             rows={rows}
