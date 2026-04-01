@@ -1,6 +1,6 @@
 import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { projectGroups } from "@/lib/db/schema";
 
@@ -9,7 +9,7 @@ const bodySchema = z.object({
 });
 
 export async function PUT(req: Request) {
-  await requireAdmin();
+  await requireUser();
   const json = await req.json().catch(() => null);
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {

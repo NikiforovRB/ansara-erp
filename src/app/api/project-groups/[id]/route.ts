@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { projectGroups, projects } from "@/lib/db/schema";
 
@@ -11,7 +11,7 @@ const patchSchema = z.object({
 });
 
 export async function PATCH(req: Request, ctx: Ctx) {
-  await requireAdmin();
+  await requireUser();
   const { id } = await ctx.params;
   const json = await req.json().catch(() => null);
   const parsed = patchSchema.safeParse(json);
@@ -28,7 +28,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 }
 
 export async function DELETE(_req: Request, ctx: Ctx) {
-  await requireAdmin();
+  await requireUser();
   const { id } = await ctx.params;
   await db.transaction(async (tx) => {
     await tx.update(projects).set({ groupId: null }).where(eq(projects.groupId, id));

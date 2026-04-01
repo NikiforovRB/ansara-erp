@@ -1,12 +1,12 @@
 import { eq, sql } from "drizzle-orm";
-import { requireAdmin } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { projects } from "@/lib/db/schema";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(_req: Request, ctx: Ctx) {
-  await requireAdmin();
+  await requireUser();
   const { id } = await ctx.params;
   const [row] = await db
     .select({

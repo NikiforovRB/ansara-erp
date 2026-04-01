@@ -259,7 +259,7 @@ export function AppHeader({
       </nav>
 
       <div className="ml-auto flex shrink-0 items-center gap-1">
-        {user.role === "admin" && onOpenGroups ? (
+        {onOpenGroups ? (
           <HeaderIcon
             label="Группы"
             srcDefault={groupsIcon}

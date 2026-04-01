@@ -1,6 +1,6 @@
 import { asc, sql } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdmin, requireUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { projectGroups } from "@/lib/db/schema";
 
@@ -15,7 +15,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  await requireAdmin();
+  await requireUser();
   const json = await req.json().catch(() => null);
   const parsed = createSchema.safeParse(json);
   if (!parsed.success) {

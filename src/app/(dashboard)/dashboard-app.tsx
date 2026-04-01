@@ -147,7 +147,7 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
         onOpenSettings={
           user.role === "admin" ? () => setPanel({ kind: "settings" }) : undefined
         }
-        onOpenGroups={user.role === "admin" ? () => setPanel({ kind: "groups" }) : undefined}
+        onOpenGroups={() => setPanel({ kind: "groups" })}
         onAddProject={() => setPanel({ kind: "add" })}
         onOpenMyProfile={() => setPanel({ kind: "profile" })}
         showBacklogColumn={showBacklogColumn}
@@ -213,15 +213,13 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
           onClose={closePanel}
         />
       ) : null}
-      {user.role === "admin" ? (
-        <GroupsPanel
-          open={panel?.kind === "groups"}
-          onClose={closePanel}
-          groupedEnabled={showGroupedProjects}
-          onToggleGrouped={setShowGroupedProjectsPersist}
-          onSaved={() => void refresh()}
-        />
-      ) : null}
+      <GroupsPanel
+        open={panel?.kind === "groups"}
+        onClose={closePanel}
+        groupedEnabled={showGroupedProjects}
+        onToggleGrouped={setShowGroupedProjectsPersist}
+        onSaved={() => void refresh()}
+      />
       <MyProfilePanel
         open={panel?.kind === "profile"}
         onClose={closePanel}
