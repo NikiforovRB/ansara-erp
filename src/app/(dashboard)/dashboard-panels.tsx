@@ -1341,6 +1341,21 @@ type BlockRow = {
   color: PaymentTextBlockState;
 };
 
+function sanitizePaymentUnitsInput(raw: string) {
+  let s = raw.replace(/[^\d,.\s]/g, "");
+  s = s.replace(/\s+/g, "");
+  // allow only one decimal separator; normalize multiple separators by keeping the first
+  const firstSep = s.search(/[,.]/);
+  if (firstSep >= 0) {
+    const head = s.slice(0, firstSep);
+    const tail = s
+      .slice(firstSep + 1)
+      .replace(/[,.]/g, "");
+    s = `${head}${raw.includes(",") ? "," : "."}${tail}`;
+  }
+  return s;
+}
+
 function cycleDocState(current: PaymentTextBlockState): PaymentTextBlockState {
   // Doc icon has its own 4-state cycle: gray -> green -> red -> load -> gray
   if (current === "gray") return "green";
@@ -1449,7 +1464,8 @@ function PaymentBlocksSortableItem({
           style={{ color: item.color === "green" ? "#00B956" : "#8c8c8e" }}
           placeholder=" "
           value={item.body ?? ""}
-          onChange={(e) => onChangeBody(e.target.value)}
+          inputMode="numeric"
+          onChange={(e) => onChangeBody(sanitizePaymentUnitsInput(e.target.value))}
         />
         <button
           type="button"
@@ -1531,7 +1547,7 @@ export function PaymentsFormPanel({
         (j.payments?.textBlocks ?? []).map(
           (b: { id?: string; body: string | null; color: PaymentTextBlockState }) => ({
             id: String(b.id ?? nanoid()),
-            body: b.body,
+            body: b.body == null ? null : sanitizePaymentUnitsInput(b.body),
             color: b.color,
           }),
         ),
@@ -1624,6 +1640,10 @@ export function PaymentsFormPanel({
   async function save() {
     setBusy(true);
     try {
+      const sanitizedBlocks = blocks.map((b) => ({
+        ...b,
+        body: b.body == null ? null : sanitizePaymentUnitsInput(b.body),
+      }));
       const documentsOut = docs
         .filter((d) => d.url.trim().length > 0)
         .map((d) => ({
@@ -1638,7 +1658,7 @@ export function PaymentsFormPanel({
         body: JSON.stringify({
           remainingAmountRubles: remaining,
           notes: notes.trim() ? notes : null,
-          textBlocks: blocks,
+          textBlocks: sanitizedBlocks,
           lkShowPayments,
           ledger,
           documents: documentsOut,
@@ -3711,6 +3731,7 @@ export function GroupsPanel({
   onToggleGrouped: (next: boolean) => void;
   onSaved: () => void;
 }) {
+  const { theme } = useTheme();
   const [groups, setGroups] = useState<{ id: string; title: string; sortOrder: number }[]>([]);
   const [order, setOrder] = useState<string[]>([]);
   const [newTitle, setNewTitle] = useState("");
@@ -3804,17 +3825,25 @@ export function GroupsPanel({
           <SettingsLbl>Режим отображения</SettingsLbl>
         </div>
         <div
-          className="mt-2 inline-flex rounded-xl p-1"
-          style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 10%, transparent)" }}
+          className="mt-2 inline-flex rounded-xl border p-1"
+          style={{
+            borderColor: theme === "dark" ? "#474747" : "#dadada",
+            backgroundColor: theme === "dark" ? "#000000" : "#ffffff",
+          }}
         >
           <button
             type="button"
             className={`rounded-lg px-4 py-2 text-xs transition-colors ${
-              !groupedEnabled
-                ? "text-[var(--foreground)]"
-                : "text-[var(--muted)] hover:text-[#5A86EE]"
+              !groupedEnabled ? "" : theme === "dark" ? "hover:bg-[#232324]" : "hover:bg-[#eeedeb]"
             }`}
-            style={!groupedEnabled ? { backgroundColor: "rgb(0 0 0 / 12%)" } : undefined}
+            style={{
+              color: theme === "dark" ? "#ffffff" : "#000000",
+              backgroundColor: !groupedEnabled
+                ? theme === "dark"
+                  ? "#232324"
+                  : "#eeedeb"
+                : "transparent",
+            }}
             onClick={() => onToggleGrouped(false)}
           >
             Показывать без группировки
@@ -3822,11 +3851,16 @@ export function GroupsPanel({
           <button
             type="button"
             className={`rounded-lg px-4 py-2 text-xs transition-colors ${
-              groupedEnabled
-                ? "text-[var(--foreground)]"
-                : "text-[var(--muted)] hover:text-[#5A86EE]"
+              groupedEnabled ? "" : theme === "dark" ? "hover:bg-[#232324]" : "hover:bg-[#eeedeb]"
             }`}
-            style={groupedEnabled ? { backgroundColor: "rgb(0 0 0 / 12%)" } : undefined}
+            style={{
+              color: theme === "dark" ? "#ffffff" : "#000000",
+              backgroundColor: groupedEnabled
+                ? theme === "dark"
+                  ? "#232324"
+                  : "#eeedeb"
+                : "transparent",
+            }}
             onClick={() => onToggleGrouped(true)}
           >
             Показывать с группировкой

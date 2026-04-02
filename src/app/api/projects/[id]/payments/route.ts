@@ -76,7 +76,12 @@ export async function PUT(req: Request, ctx: Ctx) {
       await tx.insert(paymentTextBlocks).values(
         textBlocks.map((b, i) => ({
           projectId: id,
-          body: b.body ?? null,
+          body:
+            b.body == null
+              ? null
+              : b.body
+                  .replace(/[^\d,.\s]/g, "")
+                  .replace(/\s+/g, ""),
           color: b.color,
           sortOrder: i,
         })),

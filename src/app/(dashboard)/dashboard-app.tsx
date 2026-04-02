@@ -165,6 +165,7 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
             onOrderSaved={() => void refresh()}
             showBacklogColumn={showBacklogColumn}
             showGroupedProjects={showGroupedProjects}
+            isAdmin={user.role === "admin"}
           />
         )}
       </div>

@@ -23,6 +23,7 @@ import { PaymentBlock } from "@/components/cells/payment-block";
 import { useTheme } from "@/components/theme-provider";
 import { formatRuDayMonthWeekday } from "@/lib/dates";
 import { paymentChipStyles } from "@/lib/payment-chip";
+import { formatRubles } from "@/lib/money";
 
 import beklogBlack from "@/icons/beklog-black.svg";
 import beklogIcon from "@/icons/beklog.svg";
@@ -515,6 +516,7 @@ type Props = {
   onOrderSaved?: () => void;
   showBacklogColumn?: boolean;
   showGroupedProjects?: boolean;
+  isAdmin?: boolean;
 };
 
 function TableHeadIcon({
@@ -544,7 +546,24 @@ export function ProjectsSortableTable({
   onOrderSaved,
   showBacklogColumn = true,
   showGroupedProjects = false,
+  isAdmin = false,
 }: Props) {
+  function parseUnitsFromBlockBody(body: string | null) {
+    const s0 = body?.trim() ?? "";
+    if (!s0) return 0;
+    const s = s0.replace(/\s/g, "").replace(",", ".");
+    const m = s.match(/^\d+(?:\.\d+)?$/);
+    if (!m) return 0;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function formatUnitsWithThreeZeros(units: number) {
+    if (!Number.isFinite(units) || units <= 0) return "0 000 ₽";
+    // "units" are stored without 000 suffix; displayed as RUB by adding 000.
+    return formatRubles(Math.round(units * 1000));
+  }
+
   const ids = useMemo(() => rows.map((r) => r.project.id), [rows]);
   const [order, setOrder] = useState<string[]>(ids);
 
@@ -594,6 +613,38 @@ export function ProjectsSortableTable({
     }
     return result;
   }, [orderedRows, showGroupedProjects]);
+
+  const adminPaymentTotals = useMemo(() => {
+    let receivedUnits = 0; // filled gray + filled green
+    let closedByActsUnits = 0; // filled green
+    let notClosedByActsUnits = 0; // filled gray (standard)
+    let expectedUnits = 0; // outline-only (neutral)
+
+    for (const r of rows) {
+      for (const b of r.paymentBlocks ?? []) {
+        const units = parseUnitsFromBlockBody(b.body);
+        if (!units) continue;
+        if (b.color === "green") {
+          closedByActsUnits += units;
+          receivedUnits += units;
+        } else if (b.color === "neutral") {
+          expectedUnits += units;
+        } else if (b.color === "gray") {
+          notClosedByActsUnits += units;
+          receivedUnits += units;
+        } else {
+          // red/load — не участвуют в финансовых итогах
+        }
+      }
+    }
+
+    return {
+      receivedUnits,
+      closedByActsUnits,
+      notClosedByActsUnits,
+      expectedUnits,
+    };
+  }, [rows]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -742,6 +793,44 @@ export function ProjectsSortableTable({
                 />
               ))}
         </SortableContext>
+
+        {isAdmin ? (
+          <div
+            className={`${cols(showBacklogColumn)} mt-[30px] gap-x-10 text-left`}
+          >
+            <div aria-hidden />
+            <div aria-hidden />
+            <div aria-hidden />
+            <div className="text-sm text-[var(--muted)]">
+              <div>
+                Всего поступило оплат:{" "}
+                <span className="font-medium text-[var(--foreground)] tabular-nums">
+                  {formatUnitsWithThreeZeros(adminPaymentTotals.receivedUnits)}
+                </span>
+              </div>
+              <div className="mt-1">
+                Закрыто актами:{" "}
+                <span className="font-medium text-[var(--foreground)] tabular-nums">
+                  {formatUnitsWithThreeZeros(adminPaymentTotals.closedByActsUnits)}
+                </span>
+              </div>
+              <div className="mt-1">
+                Не закрыто актами:{" "}
+                <span className="font-medium text-[var(--foreground)] tabular-nums">
+                  {formatUnitsWithThreeZeros(adminPaymentTotals.notClosedByActsUnits)}
+                </span>
+              </div>
+              <div className="mt-1">
+                Ожидается оплат:{" "}
+                <span className="font-medium text-[var(--foreground)] tabular-nums">
+                  {formatUnitsWithThreeZeros(adminPaymentTotals.expectedUnits)}
+                </span>
+              </div>
+            </div>
+            {showBacklogColumn ? <div aria-hidden /> : null}
+            <div aria-hidden />
+          </div>
+        ) : null}
       </div>
     </DndContext>
   );
