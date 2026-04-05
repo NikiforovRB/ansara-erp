@@ -1990,7 +1990,7 @@ export function PaymentsFormPanel({
                             </button>
                           </div>
                         </div>
-                      ) : (
+                      ) : row.comment?.trim() ? (
                         <div className="flex flex-col gap-1 py-2">
                           <div className="flex items-center gap-2">
                             <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
@@ -2018,7 +2018,33 @@ export function PaymentsFormPanel({
                             </div>
                           </div>
                           <div className="min-w-0 whitespace-pre-wrap break-words text-[var(--foreground)]">
-                            {row.comment?.trim() || "—"}
+                            {row.comment.trim()}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 py-2">
+                          <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
+                            {formatRuDayMonthWeekday(row.paymentDate)}
+                          </div>
+                          <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
+                            {formatThousandsRub(row.amountRubles)} ₽
+                          </div>
+                          <div className="min-w-0 flex-1" aria-hidden />
+                          <div className="w-10 shrink-0 text-right">
+                            <button
+                              type="button"
+                              aria-label="Редактировать оплату"
+                              className="inline-flex p-0.5"
+                              onClick={() => setEditLedger(i)}
+                            >
+                              <Image
+                                src={theme === "dark" ? editBlack : editIcon}
+                                alt=""
+                                width={18}
+                                height={18}
+                                unoptimized
+                              />
+                            </button>
                           </div>
                         </div>
                       )}
@@ -2171,7 +2197,7 @@ export function PaymentsFormPanel({
                             </button>
                           </div>
                         </div>
-                      ) : (
+                      ) : row.comment?.trim() ? (
                         <div className="flex flex-col gap-1 py-2">
                           <div className="flex items-center gap-2">
                             <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
@@ -2210,7 +2236,44 @@ export function PaymentsFormPanel({
                             </div>
                           </div>
                           <div className="min-w-0 whitespace-pre-wrap break-words text-[var(--foreground)]">
-                            {row.comment?.trim() ? row.comment.trim() : "—"}
+                            {row.comment.trim()}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 py-2">
+                          <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
+                            {formatRuDayMonthWeekday(row.docDate)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            {row.url.trim() ? (
+                              <a
+                                href={row.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-sm underline decoration-[#5A86EE]/50 underline-offset-[3px]"
+                                style={{ color: "#5A86EE" }}
+                              >
+                                {row.linkTitle?.trim() || row.url}
+                              </a>
+                            ) : (
+                              <span className="text-[var(--muted)]">—</span>
+                            )}
+                          </div>
+                          <div className="w-10 shrink-0 text-right">
+                            <button
+                              type="button"
+                              aria-label="Редактировать документ"
+                              className="inline-flex p-0.5"
+                              onClick={() => setEditDoc(i)}
+                            >
+                              <Image
+                                src={theme === "dark" ? editBlack : editIcon}
+                                alt=""
+                                width={18}
+                                height={18}
+                                unoptimized
+                              />
+                            </button>
                           </div>
                         </div>
                       )}

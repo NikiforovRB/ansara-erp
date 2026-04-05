@@ -238,7 +238,7 @@ export function RightPanel({
           >
             <FooterProgressBar active={progressActive} />
             <div
-              className={`flex min-w-0 flex-wrap items-center gap-3 px-10 py-3 max-[699px]:px-5 ${
+              className={`flex min-w-0 flex-wrap items-center gap-3 px-10 py-3 max-[699px]:px-5 max-[699px]:pb-[calc(0.75rem+20px)] ${
                 footerStart != null ? "justify-between" : "justify-end"
               }`}
             >
