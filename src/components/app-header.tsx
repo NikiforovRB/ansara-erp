@@ -44,6 +44,8 @@ type Props = {
   onAddProject: () => void;
   showBacklogColumn?: boolean;
   onToggleShowBacklogColumn?: (next: boolean) => void;
+  /** Ширина &lt; 700px: только логотип и блок пользователя */
+  narrow?: boolean;
 };
 
 function HeaderIcon({
@@ -142,6 +144,7 @@ export function AppHeader({
   onAddProject,
   showBacklogColumn = true,
   onToggleShowBacklogColumn,
+  narrow = false,
 }: Props) {
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
@@ -174,6 +177,7 @@ export function AppHeader({
   }, [menuOpen]);
 
   useLayoutEffect(() => {
+    if (narrow) return;
     const nav = navRef.current;
     const btn = btnRefs.current[activeIdx];
     if (!nav || !btn) return;
@@ -204,11 +208,13 @@ export function AppHeader({
       ro.disconnect();
       window.removeEventListener("resize", sync);
     };
-  }, [activeIdx, statusFilter]);
+  }, [activeIdx, narrow, statusFilter]);
 
   return (
     <header
-      className="sticky top-0 z-40 flex h-14 min-w-0 items-center gap-6 px-[40px] text-[var(--header-fg)]"
+      className={`sticky top-0 z-40 flex h-14 min-w-0 items-center gap-6 text-[var(--header-fg)] ${
+        narrow ? "px-5" : "px-[40px]"
+      }`}
       style={{ backgroundColor: "#000000" }}
     >
       <Link href="/" className="relative block h-7 w-[96px] shrink-0">
@@ -223,102 +229,146 @@ export function AppHeader({
         />
       </Link>
 
-      <nav
-        ref={navRef}
-        className="relative shrink-0 rounded-lg bg-white/10 p-1 text-sm"
-      >
-        <span
-          className="pointer-events-none absolute rounded-md bg-white/15 transition-[left,top,width,height] duration-300 ease-out"
-          style={{
-            left: pill.left,
-            top: pill.top,
-            width: pill.width,
-            height: pill.height,
-          }}
-          aria-hidden
-        />
-        <div className="relative z-10 flex items-stretch gap-0">
-          {STATUS_TABS.map(([key, label], i) => (
-            <button
-              key={key}
-              ref={(el) => {
-                btnRefs.current[i] = el;
-              }}
-              type="button"
-              onClick={() => onStatusFilter(key)}
-              className={`whitespace-nowrap rounded-md px-4 py-2 text-center transition-colors duration-200 ${
-                statusFilter === key
-                  ? "text-white"
-                  : "text-[#666666] hover:text-white"
-              }`}
-            >
-              {label} • {statusCounts[key]}
-            </button>
-          ))}
-        </div>
-      </nav>
+      {!narrow ? (
+        <nav
+          ref={navRef}
+          className="relative shrink-0 rounded-lg bg-white/10 p-1 text-sm"
+        >
+          <span
+            className="pointer-events-none absolute rounded-md bg-white/15 transition-[left,top,width,height] duration-300 ease-out"
+            style={{
+              left: pill.left,
+              top: pill.top,
+              width: pill.width,
+              height: pill.height,
+            }}
+            aria-hidden
+          />
+          <div className="relative z-10 flex items-stretch gap-0">
+            {STATUS_TABS.map(([key, label], i) => (
+              <button
+                key={key}
+                ref={(el) => {
+                  btnRefs.current[i] = el;
+                }}
+                type="button"
+                onClick={() => onStatusFilter(key)}
+                className={`whitespace-nowrap rounded-md px-4 py-2 text-center transition-colors duration-200 ${
+                  statusFilter === key
+                    ? "text-white"
+                    : "text-[#666666] hover:text-white"
+                }`}
+              >
+                {label} • {statusCounts[key]}
+              </button>
+            ))}
+          </div>
+        </nav>
+      ) : null}
 
       <div className="ml-auto flex shrink-0 items-center gap-1">
-        {onOpenGroups ? (
-          <HeaderIcon
-            label="Группы"
-            srcDefault={groupsIcon}
-            srcHover={groupsNavIcon}
-            onClick={onOpenGroups}
-          />
-        ) : null}
-        {user.role === "admin" && onOpenSettings ? (
-          <HeaderIcon
-            label="Настройки"
-            srcDefault={settingsIcon}
-            srcHover={settingsNavIcon}
-            onClick={onOpenSettings}
-          />
-        ) : null}
-
-        <HeaderIcon
-          label="Добавить проект"
-          srcDefault={folderIcon}
-          srcHover={folderNavIcon}
-          onClick={onAddProject}
-        />
-
-        <HeaderIcon
-          label={theme === "light" ? "Тёмная тема" : "Светлая тема"}
-          srcDefault={theme === "light" ? moonIcon : sunIcon}
-          srcHover={theme === "light" ? moonNavIcon : sunNavIcon}
-          onClick={toggleTheme}
-        />
-
-        <div ref={menuWrapRef} className="relative ml-2 flex items-center gap-2 pl-2">
-          <div className="text-right text-sm leading-tight">
-            <div>
-              {user.firstName}
-              {user.lastName?.trim() ? ` ${user.lastName.trim()}` : ""}
-            </div>
-            <div className="text-xs text-[#666666]">{roleLabel(user.role)}</div>
-          </div>
-          <button
-            type="button"
-            aria-expanded={menuOpen}
-            aria-haspopup="menu"
-            onClick={() => setMenuOpen((v) => !v)}
-            className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-neutral-700 ring-offset-2 ring-offset-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-          >
-            {user.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={user.avatarUrl}
-                alt=""
-                className="h-full w-full object-cover"
+        {!narrow ? (
+          <>
+            {onOpenGroups ? (
+              <HeaderIcon
+                label="Группы"
+                srcDefault={groupsIcon}
+                srcHover={groupsNavIcon}
+                onClick={onOpenGroups}
               />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs text-white">
-                {user.firstName[0]}
-                {user.lastName?.trim()?.[0] ?? ""}
+            ) : null}
+            {user.role === "admin" && onOpenSettings ? (
+              <HeaderIcon
+                label="Настройки"
+                srcDefault={settingsIcon}
+                srcHover={settingsNavIcon}
+                onClick={onOpenSettings}
+              />
+            ) : null}
+
+            <HeaderIcon
+              label="Добавить проект"
+              srcDefault={folderIcon}
+              srcHover={folderNavIcon}
+              onClick={onAddProject}
+            />
+
+            <HeaderIcon
+              label={theme === "light" ? "Тёмная тема" : "Светлая тема"}
+              srcDefault={theme === "light" ? moonIcon : sunIcon}
+              srcHover={theme === "light" ? moonNavIcon : sunNavIcon}
+              onClick={toggleTheme}
+            />
+          </>
+        ) : null}
+
+        <div
+          ref={menuWrapRef}
+          className={`relative flex items-center gap-2 ${narrow ? "" : "ml-2 pl-2"}`}
+        >
+          {narrow ? (
+            <>
+              <button
+                type="button"
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+                onClick={() => setMenuOpen((v) => !v)}
+                className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-neutral-700 ring-offset-2 ring-offset-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+              >
+                {user.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.avatarUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xs text-white">
+                    {user.firstName[0]}
+                    {user.lastName?.trim()?.[0] ?? ""}
+                  </div>
+                )}
+              </button>
+              <div className="min-w-0 text-left text-sm leading-tight">
+                <div className="truncate">
+                  {user.firstName}
+                  {user.lastName?.trim() ? ` ${user.lastName.trim()}` : ""}
+                </div>
+                <div className="truncate text-xs text-[#666666]">{roleLabel(user.role)}</div>
               </div>
-            )}
-          </button>
+            </>
+          ) : (
+            <>
+              <div className="text-right text-sm leading-tight">
+                <div>
+                  {user.firstName}
+                  {user.lastName?.trim() ? ` ${user.lastName.trim()}` : ""}
+                </div>
+                <div className="text-xs text-[#666666]">{roleLabel(user.role)}</div>
+              </div>
+              <button
+                type="button"
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+                onClick={() => setMenuOpen((v) => !v)}
+                className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-neutral-700 ring-offset-2 ring-offset-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+              >
+                {user.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.avatarUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xs text-white">
+                    {user.firstName[0]}
+                    {user.lastName?.trim()?.[0] ?? ""}
+                  </div>
+                )}
+              </button>
+            </>
+          )}
 
           {menuOpen ? (
             <div

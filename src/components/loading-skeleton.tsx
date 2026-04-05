@@ -31,30 +31,50 @@ export function TableSkeleton() {
   );
 }
 
-/** Скелетон основной таблицы проектов (сетка как у шапки таблицы). */
-export function DashboardMainTableSkeleton({ showBacklogColumn = true }: { showBacklogColumn?: boolean }) {
-  const cols = showBacklogColumn
+const colsSkeletonFull = (showBacklogColumn: boolean) =>
+  showBacklogColumn
     ? "grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)_minmax(0,0.9fr)_minmax(0,1.15fr)_minmax(0,1.05fr)_40px] gap-x-10"
     : "grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)_minmax(0,0.9fr)_minmax(0,1.15fr)_40px] gap-x-10";
+
+const colsSkeletonMobile = "grid grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-x-4";
+
+/** Скелетон основной таблицы проектов (сетка как у шапки таблицы). */
+export function DashboardMainTableSkeleton({
+  showBacklogColumn = true,
+  narrow = false,
+}: {
+  showBacklogColumn?: boolean;
+  /** Две колонки, как на экране &lt; 700px */
+  narrow?: boolean;
+}) {
+  const cols = narrow ? colsSkeletonMobile : colsSkeletonFull(showBacklogColumn);
   return (
-    <div className={showBacklogColumn ? "min-w-[900px]" : "min-w-[760px]"}>
+    <div className={narrow ? "min-w-0 w-full" : showBacklogColumn ? "min-w-[900px]" : "min-w-[760px]"}>
       <div className={`${cols} border-b border-[var(--table-divider)] pb-2`}>
         <SkeletonBlock className="h-4 w-24" />
         <SkeletonBlock className="h-4 w-28" />
-        <SkeletonBlock className="h-4 w-20 mx-auto" />
-        <SkeletonBlock className="h-4 w-32" />
-        {showBacklogColumn ? <SkeletonBlock className="h-4 w-16" /> : null}
-        <div aria-hidden className="h-4 w-4" />
+        {!narrow ? (
+          <>
+            <SkeletonBlock className="mx-auto h-4 w-20" />
+            <SkeletonBlock className="h-4 w-32" />
+            {showBacklogColumn ? <SkeletonBlock className="h-4 w-16" /> : null}
+            <div aria-hidden className="h-4 w-4" />
+          </>
+        ) : null}
       </div>
       <div className="mt-2 space-y-3">
         {Array.from({ length: 7 }).map((_, i) => (
           <div key={i} className={`${cols} items-center py-2`}>
             <SkeletonBlock className="h-10 w-full max-w-[200px]" />
             <SkeletonBlock className="h-8 w-full max-w-[180px]" />
-            <SkeletonBlock className="h-8 w-24 justify-self-center" />
-            <SkeletonBlock className="h-8 w-full max-w-[220px]" />
-            {showBacklogColumn ? <SkeletonBlock className="h-8 w-20" /> : null}
-            <SkeletonBlock className="h-6 w-6 rounded" />
+            {!narrow ? (
+              <>
+                <SkeletonBlock className="h-8 w-24 justify-self-center" />
+                <SkeletonBlock className="h-8 w-full max-w-[220px]" />
+                {showBacklogColumn ? <SkeletonBlock className="h-8 w-20" /> : null}
+                <SkeletonBlock className="h-6 w-6 rounded" />
+              </>
+            ) : null}
           </div>
         ))}
       </div>

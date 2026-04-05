@@ -56,7 +56,7 @@ function FooterProgressBar({ active }: { active: boolean }) {
   if (!visible) return null;
 
   return (
-    <div className="flex items-center gap-2 px-10 pt-2">
+    <div className="flex items-center gap-2 px-10 pt-2 max-[699px]:px-5">
       <div
         className="h-[3px] min-h-[3px] flex-1 overflow-hidden rounded-full"
         style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 12%, transparent)" }}
@@ -186,11 +186,11 @@ export function RightPanel({
           transition: panelTransition,
           ["--input-bg" as string]: theme === "dark" ? "#333333" : undefined,
         }}
-        className="absolute right-0 top-0 flex h-[100dvh] w-[70vw] min-w-[280px] max-w-[1200px] flex-col bg-[var(--surface)] text-[var(--foreground)] shadow-xl"
+        className="absolute right-0 top-0 flex h-[100dvh] w-[70vw] min-w-[280px] max-w-[1200px] flex-col bg-[var(--surface)] text-[var(--foreground)] shadow-xl max-[699px]:w-full max-[699px]:min-w-0 max-[699px]:max-w-none"
         role="dialog"
         aria-modal="true"
       >
-        <div className="flex shrink-0 items-center justify-between px-10 py-3">
+        <div className="flex shrink-0 items-center justify-between px-10 py-3 max-[699px]:px-5">
           <h2 className="text-lg font-medium">{title}</h2>
           <button
             type="button"
@@ -216,7 +216,7 @@ export function RightPanel({
             />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-10 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-10 py-4 max-[699px]:px-5">
           {!contentLoading && statusBanner ? (
             <div
               role="status"
@@ -238,7 +238,7 @@ export function RightPanel({
           >
             <FooterProgressBar active={progressActive} />
             <div
-              className={`flex min-w-0 flex-wrap items-center gap-3 px-10 py-3 ${
+              className={`flex min-w-0 flex-wrap items-center gap-3 px-10 py-3 max-[699px]:px-5 ${
                 footerStart != null ? "justify-between" : "justify-end"
               }`}
             >

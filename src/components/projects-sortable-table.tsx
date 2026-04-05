@@ -61,6 +61,15 @@ function cols(showBacklog: boolean) {
     : "grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)_minmax(0,0.9fr)_minmax(0,1.15fr)_40px] gap-x-10";
 }
 
+const colsMobile =
+  "grid grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-x-4";
+
+export type MobileColumnMode = "deadline" | "lk" | "payments" | "backlog";
+
+function gridClass(showBacklog: boolean, mobile: MobileColumnMode | null | undefined) {
+  return mobile ? colsMobile : cols(showBacklog);
+}
+
 export type ProjectRow = {
   project: {
     id: string;
@@ -285,6 +294,7 @@ function SortableProjectRow({
   onLk,
   showBacklogColumn,
   withTopBorder = false,
+  mobileColumnMode = null,
 }: {
   row: ProjectRow;
   onCustomer: () => void;
@@ -294,6 +304,7 @@ function SortableProjectRow({
   onLk: () => void;
   showBacklogColumn: boolean;
   withTopBorder?: boolean;
+  mobileColumnMode?: MobileColumnMode | null;
 }) {
   const { theme } = useTheme();
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
@@ -306,6 +317,7 @@ function SortableProjectRow({
     isDragging,
   } = useSortable({
     id: row.project.id,
+    disabled: Boolean(mobileColumnMode),
     transition: {
       duration: 320,
       easing: "cubic-bezier(0.25, 1, 0.5, 1)",
@@ -356,148 +368,188 @@ function SortableProjectRow({
     return { text, color };
   }, [row.latestTimelineEntryDate, theme]);
 
+  const grid = gridClass(showBacklogColumn, mobileColumnMode);
+
+  const customerCell = (
+    <div className={`flex min-h-[70px] items-start pr-2 ${cellHover}`}>
+      <button
+        type="button"
+        className="flex min-h-[70px] w-full flex-col items-start justify-start text-left"
+        onClick={onCustomer}
+      >
+        <div className="flex w-full items-start gap-2">
+          {row.project.status === "paused" ? (
+            <Image
+              src={theme === "dark" ? pauseBlack : pauseIcon}
+              alt=""
+              width={18}
+              height={18}
+              unoptimized
+              className="mt-0.5 shrink-0"
+            />
+          ) : null}
+          {row.project.status === "completed" ? (
+            <Image
+              src={completeIcon}
+              alt=""
+              width={18}
+              height={18}
+              unoptimized
+              className="mt-0.5 shrink-0"
+            />
+          ) : null}
+          <div className="min-w-0 flex-1">
+            <div className="font-medium">{row.project.customerName}</div>
+            {row.project.shortDescription ? (
+              <div className="mt-1 whitespace-pre-wrap text-xs text-[var(--muted)]">
+                {row.project.shortDescription}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </button>
+    </div>
+  );
+
+  const deadlineCell = (
+    <div
+      className={`flex min-h-[70px] ${mobileColumnMode ? "max-w-none" : "max-w-[300px]"} items-start ${cellHover}`}
+    >
+      <DeadlineBlock
+        startAt={row.deadline?.startAt ?? null}
+        endAt={row.deadline?.endAt ?? null}
+        comment={row.deadline?.comment ?? null}
+        onClick={onDeadline}
+        className="min-h-[70px] w-full"
+      />
+    </div>
+  );
+
+  const lkCell = (
+    <div
+      className={`flex min-h-[70px] w-full flex-col justify-start gap-[5px] pt-0 ${
+        mobileColumnMode ? "min-w-0 items-start" : "items-center"
+      }`}
+    >
+      <div className="flex items-center">
+        <LkActionButton
+          label="Редактор ЛК"
+          iconLight={editIcon}
+          iconDark={editBlack}
+          iconHover={editNav}
+          onClick={onLk}
+        />
+        {latestInfo ? (
+          <span className="ml-[10px] text-[11px] leading-none" style={{ color: latestInfo.color }}>
+            {latestInfo.text}
+          </span>
+        ) : null}
+      </div>
+      <div className="flex items-center">
+        <LkActionButton
+          label="Просмотр ЛК"
+          iconLight={eyeIcon}
+          iconDark={eyeBlack}
+          iconHover={eyeNav}
+          onClick={() =>
+            window.open(`/lk/${row.project.slug}`, "_blank", "noopener,noreferrer")
+          }
+        />
+        <LkActionButton
+          label=""
+          className="ml-[10px]"
+          iconLight={copyIcon}
+          iconDark={copyBlack}
+          iconHover={copyNav}
+          onClick={() => {
+            const url = `${window.location.origin}/lk/${row.project.slug}`;
+            void navigator.clipboard.writeText(url).then(() => {
+              setCopiedLink(url);
+              window.setTimeout(() => setCopiedLink(null), 1000);
+            });
+          }}
+        />
+      </div>
+      {copiedLink ? (
+        <span className="mt-1 block text-[10px] text-[#00B956]">
+          Ссылка {copiedLink} скопирована
+        </span>
+      ) : null}
+    </div>
+  );
+
+  const paymentsCell = (
+    <div
+      className={`flex min-h-[70px] ${mobileColumnMode ? "max-w-none" : "max-w-[400px]"} flex-col items-stretch gap-[9px] ${cellHover} cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5A86EE]`}
+      role="button"
+      tabIndex={0}
+      onClick={onPayments}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onPayments();
+        }
+      }}
+    >
+      <PaymentBlock
+        paidRubles={row.paidRubles}
+        remainingRubles={row.project.remainingAmountRubles}
+        className="w-full"
+      />
+      <PaymentBlocksPreview blocks={row.paymentBlocks ?? []} />
+    </div>
+  );
+
+  const backlogCell = showBacklogColumn ? (
+    <div className={`flex min-h-[70px] items-start ${cellHover}`}>
+      <button
+        type="button"
+        className="flex min-h-[70px] w-full flex-col items-start justify-start text-left"
+        onClick={onBacklog}
+      >
+        <BacklogCell preview={row.backlogPreview} />
+      </button>
+    </div>
+  ) : null;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`${cols(showBacklogColumn)} border-b border-[var(--table-divider)] py-2 ${
+      className={`${grid} border-b border-[var(--table-divider)] py-2 ${
         withTopBorder ? "border-t" : ""
       }`}
     >
-      <div className={`flex min-h-[70px] items-start pr-2 ${cellHover}`}>
-        <button
-          type="button"
-          className="flex min-h-[70px] w-full flex-col items-start justify-start text-left"
-          onClick={onCustomer}
-        >
-          <div className="flex w-full items-start gap-2">
-            {row.project.status === "paused" ? (
-              <Image
-                src={theme === "dark" ? pauseBlack : pauseIcon}
-                alt=""
-                width={18}
-                height={18}
-                unoptimized
-                className="mt-0.5 shrink-0"
-              />
-            ) : null}
-            {row.project.status === "completed" ? (
-              <Image
-                src={completeIcon}
-                alt=""
-                width={18}
-                height={18}
-                unoptimized
-                className="mt-0.5 shrink-0"
-              />
-            ) : null}
-            <div className="min-w-0 flex-1">
-              <div className="font-medium">{row.project.customerName}</div>
-              {row.project.shortDescription ? (
-                <div className="mt-1 whitespace-pre-wrap text-xs text-[var(--muted)]">
-                  {row.project.shortDescription}
-                </div>
-              ) : null}
-            </div>
+      {customerCell}
+      {!mobileColumnMode ? (
+        <>
+          {deadlineCell}
+          {lkCell}
+          {paymentsCell}
+          {backlogCell}
+          <div className="flex min-h-[70px] items-start justify-end pt-0.5">
+            <button
+              type="button"
+              className="cursor-grab touch-none p-1 active:cursor-grabbing"
+              aria-label="Перетащить строку"
+              {...attributes}
+              {...listeners}
+            >
+              <Image src={dragSrc} alt="" width={18} height={18} unoptimized />
+            </button>
           </div>
-        </button>
-      </div>
-      <div className={`flex min-h-[70px] max-w-[300px] items-start ${cellHover}`}>
-        <DeadlineBlock
-          startAt={row.deadline?.startAt ?? null}
-          endAt={row.deadline?.endAt ?? null}
-          comment={row.deadline?.comment ?? null}
-          onClick={onDeadline}
-          className="min-h-[70px] w-full"
-        />
-      </div>
-      <div className="flex min-h-[70px] w-full flex-col items-center justify-start gap-[5px] pt-0">
-        <div className="flex items-center">
-          <LkActionButton
-            label="Редактор ЛК"
-            iconLight={editIcon}
-            iconDark={editBlack}
-            iconHover={editNav}
-            onClick={onLk}
-          />
-          {latestInfo ? (
-            <span className="ml-[10px] text-[11px] leading-none" style={{ color: latestInfo.color }}>
-              {latestInfo.text}
-            </span>
-          ) : null}
-        </div>
-        <div className="flex items-center">
-          <LkActionButton
-            label="Просмотр ЛК"
-            iconLight={eyeIcon}
-            iconDark={eyeBlack}
-            iconHover={eyeNav}
-            onClick={() =>
-              window.open(`/lk/${row.project.slug}`, "_blank", "noopener,noreferrer")
-            }
-          />
-          <LkActionButton
-            label=""
-            className="ml-[10px]"
-            iconLight={copyIcon}
-            iconDark={copyBlack}
-            iconHover={copyNav}
-            onClick={() => {
-              const url = `${window.location.origin}/lk/${row.project.slug}`;
-              void navigator.clipboard.writeText(url).then(() => {
-                setCopiedLink(url);
-                window.setTimeout(() => setCopiedLink(null), 1000);
-              });
-            }}
-          />
-        </div>
-        {copiedLink ? (
-          <span className="mt-1 block text-[10px] text-[#00B956]">
-            Ссылка {copiedLink} скопирована
-          </span>
-        ) : null}
-      </div>
-      <div
-        className={`flex min-h-[70px] max-w-[400px] flex-col items-stretch gap-[9px] ${cellHover} cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5A86EE]`}
-        role="button"
-        tabIndex={0}
-        onClick={onPayments}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onPayments();
-          }
-        }}
-      >
-        <PaymentBlock
-          paidRubles={row.paidRubles}
-          remainingRubles={row.project.remainingAmountRubles}
-          className="w-full"
-        />
-        <PaymentBlocksPreview blocks={row.paymentBlocks ?? []} />
-      </div>
-      {showBacklogColumn ? (
-        <div className={`flex min-h-[70px] items-start ${cellHover}`}>
-          <button
-            type="button"
-            className="flex min-h-[70px] w-full flex-col items-start justify-start text-left"
-            onClick={onBacklog}
-          >
-            <BacklogCell preview={row.backlogPreview} />
-          </button>
-        </div>
-      ) : null}
-      <div className="flex min-h-[70px] items-start justify-end pt-0.5">
-        <button
-          type="button"
-          className="cursor-grab touch-none p-1 active:cursor-grabbing"
-          aria-label="Перетащить строку"
-          {...attributes}
-          {...listeners}
-        >
-          <Image src={dragSrc} alt="" width={18} height={18} unoptimized />
-        </button>
-      </div>
+        </>
+      ) : mobileColumnMode === "deadline" ? (
+        deadlineCell
+      ) : mobileColumnMode === "lk" ? (
+        lkCell
+      ) : mobileColumnMode === "payments" ? (
+        paymentsCell
+      ) : (
+        backlogCell ?? (
+          <div className="flex min-h-[70px] items-center text-sm text-[var(--muted)]">—</div>
+        )
+      )}
     </div>
   );
 }
@@ -517,6 +569,8 @@ type Props = {
   showBacklogColumn?: boolean;
   showGroupedProjects?: boolean;
   isAdmin?: boolean;
+  /** Узкий экран: только две колонки (заказчик + выбранный блок) */
+  mobileColumnMode?: MobileColumnMode | null;
 };
 
 function TableHeadIcon({
@@ -547,6 +601,7 @@ export function ProjectsSortableTable({
   showBacklogColumn = true,
   showGroupedProjects = false,
   isAdmin = false,
+  mobileColumnMode = null,
 }: Props) {
   function parseUnitsFromBlockBody(body: string | null) {
     const s0 = body?.trim() ?? "";
@@ -688,33 +743,59 @@ export function ProjectsSortableTable({
       collisionDetection={closestCenter}
       onDragEnd={onDragEnd}
     >
-      <div className={showBacklogColumn ? "min-w-[900px]" : "min-w-[760px]"}>
+      <div
+        className={
+          mobileColumnMode ? "min-w-0 w-full" : showBacklogColumn ? "min-w-[900px]" : "min-w-[760px]"
+        }
+      >
         {!showGroupedProjects ? (
           <div
-            className={`${cols(showBacklogColumn)} border-b border-[var(--table-divider)] pb-2 text-left text-xs`}
+            className={`${gridClass(showBacklogColumn, mobileColumnMode)} border-b border-[var(--table-divider)] pb-2 text-left text-xs`}
           >
             <div className="pr-2">
               <TableHeadIcon iconLight={user1Icon} iconDark={userDark}>
                 Заказчик
               </TableHeadIcon>
             </div>
-            <TableHeadIcon iconLight={calendarIcon} iconDark={calendarBlack}>
-              Текущий дедлайн
-            </TableHeadIcon>
-            <div className="flex w-full justify-center">
-              <TableHeadIcon iconLight={lkIcon} iconDark={lkBlack}>
-                ЛК заказчика
+            {!mobileColumnMode ? (
+              <>
+                <TableHeadIcon iconLight={calendarIcon} iconDark={calendarBlack}>
+                  Текущий дедлайн
+                </TableHeadIcon>
+                <div className="flex w-full justify-center">
+                  <TableHeadIcon iconLight={lkIcon} iconDark={lkBlack}>
+                    ЛК заказчика
+                  </TableHeadIcon>
+                </div>
+                <TableHeadIcon iconLight={oplataIcon} iconDark={oplataBlack}>
+                  Оплаты и документы
+                </TableHeadIcon>
+                {showBacklogColumn ? (
+                  <TableHeadIcon iconLight={beklogIcon} iconDark={beklogBlack}>
+                    Бэклог
+                  </TableHeadIcon>
+                ) : null}
+                <div aria-hidden />
+              </>
+            ) : mobileColumnMode === "deadline" ? (
+              <TableHeadIcon iconLight={calendarIcon} iconDark={calendarBlack}>
+                Текущий дедлайн
               </TableHeadIcon>
-            </div>
-            <TableHeadIcon iconLight={oplataIcon} iconDark={oplataBlack}>
-              Оплаты и документы
-            </TableHeadIcon>
-            {showBacklogColumn ? (
+            ) : mobileColumnMode === "lk" ? (
+              <div className="flex w-full justify-center">
+                <TableHeadIcon iconLight={lkIcon} iconDark={lkBlack}>
+                  ЛК заказчика
+                </TableHeadIcon>
+              </div>
+            ) : mobileColumnMode === "payments" ? (
+              <TableHeadIcon iconLight={oplataIcon} iconDark={oplataBlack}>
+                Оплаты и документы
+              </TableHeadIcon>
+            ) : (
               <TableHeadIcon iconLight={beklogIcon} iconDark={beklogBlack}>
                 Бэклог
               </TableHeadIcon>
-            ) : null}
-            <div aria-hidden />
+            )}
           </div>
         ) : null}
         <SortableContext items={order} strategy={verticalListSortingStrategy}>
@@ -729,30 +810,52 @@ export function ProjectsSortableTable({
                   </div>
                   {gi === 0 ? (
                     <div
-                      className={`${cols(showBacklogColumn)} border-b border-[var(--table-divider)] pb-2 text-left text-xs`}
+                      className={`${gridClass(showBacklogColumn, mobileColumnMode)} border-b border-[var(--table-divider)] pb-2 text-left text-xs`}
                     >
                       <div className="pr-2">
                         <TableHeadIcon iconLight={user1Icon} iconDark={userDark}>
                           Заказчик
                         </TableHeadIcon>
                       </div>
-                      <TableHeadIcon iconLight={calendarIcon} iconDark={calendarBlack}>
-                        Текущий дедлайн
-                      </TableHeadIcon>
-                      <div className="flex w-full justify-center">
-                        <TableHeadIcon iconLight={lkIcon} iconDark={lkBlack}>
-                          ЛК заказчика
+                      {!mobileColumnMode ? (
+                        <>
+                          <TableHeadIcon iconLight={calendarIcon} iconDark={calendarBlack}>
+                            Текущий дедлайн
+                          </TableHeadIcon>
+                          <div className="flex w-full justify-center">
+                            <TableHeadIcon iconLight={lkIcon} iconDark={lkBlack}>
+                              ЛК заказчика
+                            </TableHeadIcon>
+                          </div>
+                          <TableHeadIcon iconLight={oplataIcon} iconDark={oplataBlack}>
+                            Оплаты и документы
+                          </TableHeadIcon>
+                          {showBacklogColumn ? (
+                            <TableHeadIcon iconLight={beklogIcon} iconDark={beklogBlack}>
+                              Бэклог
+                            </TableHeadIcon>
+                          ) : null}
+                          <div aria-hidden />
+                        </>
+                      ) : mobileColumnMode === "deadline" ? (
+                        <TableHeadIcon iconLight={calendarIcon} iconDark={calendarBlack}>
+                          Текущий дедлайн
                         </TableHeadIcon>
-                      </div>
-                      <TableHeadIcon iconLight={oplataIcon} iconDark={oplataBlack}>
-                        Оплаты и документы
-                      </TableHeadIcon>
-                      {showBacklogColumn ? (
+                      ) : mobileColumnMode === "lk" ? (
+                        <div className="flex w-full justify-center">
+                          <TableHeadIcon iconLight={lkIcon} iconDark={lkBlack}>
+                            ЛК заказчика
+                          </TableHeadIcon>
+                        </div>
+                      ) : mobileColumnMode === "payments" ? (
+                        <TableHeadIcon iconLight={oplataIcon} iconDark={oplataBlack}>
+                          Оплаты и документы
+                        </TableHeadIcon>
+                      ) : (
                         <TableHeadIcon iconLight={beklogIcon} iconDark={beklogBlack}>
                           Бэклог
                         </TableHeadIcon>
-                      ) : null}
-                      <div aria-hidden />
+                      )}
                     </div>
                   ) : null}
                   {g.rows.map((r) => (
@@ -772,6 +875,7 @@ export function ProjectsSortableTable({
                       }
                       onLk={() => setPanel({ kind: "lk", id: r.project.id })}
                       showBacklogColumn={showBacklogColumn}
+                      mobileColumnMode={mobileColumnMode}
                     />
                   ))}
                 </div>
@@ -790,46 +894,81 @@ export function ProjectsSortableTable({
                   }
                   onLk={() => setPanel({ kind: "lk", id: r.project.id })}
                   showBacklogColumn={showBacklogColumn}
+                  mobileColumnMode={mobileColumnMode}
                 />
               ))}
         </SortableContext>
 
         {isAdmin ? (
-          <div
-            className={`${cols(showBacklogColumn)} mt-[30px] gap-x-10 text-left`}
-          >
-            <div aria-hidden />
-            <div aria-hidden />
-            <div aria-hidden />
-            <div className="text-sm text-[var(--muted)]">
-              <div>
-                Всего поступило оплат:{" "}
-                <span className="font-medium text-[var(--foreground)] tabular-nums">
-                  {formatUnitsWithThreeZeros(adminPaymentTotals.receivedUnits)}
-                </span>
+          mobileColumnMode ? (
+            mobileColumnMode === "payments" ? (
+              <div className={`${colsMobile} mt-[30px] gap-x-4 text-left`}>
+                <div aria-hidden />
+                <div className="text-sm text-[var(--muted)]">
+                  <div>
+                    Всего поступило оплат:{" "}
+                    <span className="font-medium text-[var(--foreground)] tabular-nums">
+                      {formatUnitsWithThreeZeros(adminPaymentTotals.receivedUnits)}
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    Закрыто актами:{" "}
+                    <span className="font-medium text-[var(--foreground)] tabular-nums">
+                      {formatUnitsWithThreeZeros(adminPaymentTotals.closedByActsUnits)}
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    Не закрыто актами:{" "}
+                    <span className="font-medium text-[var(--foreground)] tabular-nums">
+                      {formatUnitsWithThreeZeros(adminPaymentTotals.notClosedByActsUnits)}
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    Ожидается оплат:{" "}
+                    <span className="font-medium text-[var(--foreground)] tabular-nums">
+                      {formatUnitsWithThreeZeros(adminPaymentTotals.expectedUnits)}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="mt-1">
-                Закрыто актами:{" "}
-                <span className="font-medium text-[var(--foreground)] tabular-nums">
-                  {formatUnitsWithThreeZeros(adminPaymentTotals.closedByActsUnits)}
-                </span>
+            ) : null
+          ) : (
+            <div
+              className={`${cols(showBacklogColumn)} mt-[30px] gap-x-10 text-left`}
+            >
+              <div aria-hidden />
+              <div aria-hidden />
+              <div aria-hidden />
+              <div className="text-sm text-[var(--muted)]">
+                <div>
+                  Всего поступило оплат:{" "}
+                  <span className="font-medium text-[var(--foreground)] tabular-nums">
+                    {formatUnitsWithThreeZeros(adminPaymentTotals.receivedUnits)}
+                  </span>
+                </div>
+                <div className="mt-1">
+                  Закрыто актами:{" "}
+                  <span className="font-medium text-[var(--foreground)] tabular-nums">
+                    {formatUnitsWithThreeZeros(adminPaymentTotals.closedByActsUnits)}
+                  </span>
+                </div>
+                <div className="mt-1">
+                  Не закрыто актами:{" "}
+                  <span className="font-medium text-[var(--foreground)] tabular-nums">
+                    {formatUnitsWithThreeZeros(adminPaymentTotals.notClosedByActsUnits)}
+                  </span>
+                </div>
+                <div className="mt-1">
+                  Ожидается оплат:{" "}
+                  <span className="font-medium text-[var(--foreground)] tabular-nums">
+                    {formatUnitsWithThreeZeros(adminPaymentTotals.expectedUnits)}
+                  </span>
+                </div>
               </div>
-              <div className="mt-1">
-                Не закрыто актами:{" "}
-                <span className="font-medium text-[var(--foreground)] tabular-nums">
-                  {formatUnitsWithThreeZeros(adminPaymentTotals.notClosedByActsUnits)}
-                </span>
-              </div>
-              <div className="mt-1">
-                Ожидается оплат:{" "}
-                <span className="font-medium text-[var(--foreground)] tabular-nums">
-                  {formatUnitsWithThreeZeros(adminPaymentTotals.expectedUnits)}
-                </span>
-              </div>
+              {showBacklogColumn ? <div aria-hidden /> : null}
+              <div aria-hidden />
             </div>
-            {showBacklogColumn ? <div aria-hidden /> : null}
-            <div aria-hidden />
-          </div>
+          )
         ) : null}
       </div>
     </DndContext>
