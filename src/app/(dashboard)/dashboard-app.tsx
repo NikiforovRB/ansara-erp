@@ -82,6 +82,17 @@ function navTabIconFilter(active: boolean, theme: "light" | "dark"): CSSProperti
   };
 }
 
+/** Подпись нижнего меню: в светлой теме строго #000000 (без наследования muted). */
+function mobileNavLabelStyle(
+  active: boolean,
+  theme: "light" | "dark",
+): CSSProperties | undefined {
+  if (!active) return undefined;
+  return {
+    color: theme === "light" ? "#000000" : "#ffffff",
+  };
+}
+
 export function DashboardApp({ user }: { user: HeaderUser }) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -288,9 +299,8 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
                 style={navTabIconFilter(mobileTab === "deadline", theme)}
               />
               <span
-                className={`max-w-full truncate px-0.5 text-center text-[10px] leading-tight ${
-                  mobileTab === "deadline" ? "text-black dark:text-white" : ""
-                }`}
+                className="max-w-full truncate px-0.5 text-center text-[10px] leading-tight"
+                style={mobileNavLabelStyle(mobileTab === "deadline", theme)}
               >
                 Дедлайн
               </span>
@@ -311,9 +321,8 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
                 style={navTabIconFilter(mobileTab === "lk", theme)}
               />
               <span
-                className={`max-w-full truncate px-0.5 text-center text-[10px] leading-tight ${
-                  mobileTab === "lk" ? "text-black dark:text-white" : ""
-                }`}
+                className="max-w-full truncate px-0.5 text-center text-[10px] leading-tight"
+                style={mobileNavLabelStyle(mobileTab === "lk", theme)}
               >
                 ЛК
               </span>
@@ -336,9 +345,8 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
                 style={navTabIconFilter(mobileTab === "payments", theme)}
               />
               <span
-                className={`max-w-full truncate px-0.5 text-center text-[10px] leading-tight ${
-                  mobileTab === "payments" ? "text-black dark:text-white" : ""
-                }`}
+                className="max-w-full truncate px-0.5 text-center text-[10px] leading-tight"
+                style={mobileNavLabelStyle(mobileTab === "payments", theme)}
               >
                 Оплаты
               </span>
@@ -362,9 +370,8 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
                   style={navTabIconFilter(mobileTab === "backlog", theme)}
                 />
                 <span
-                  className={`max-w-full truncate px-0.5 text-center text-[10px] leading-tight ${
-                    mobileTab === "backlog" ? "text-black dark:text-white" : ""
-                  }`}
+                  className="max-w-full truncate px-0.5 text-center text-[10px] leading-tight"
+                  style={mobileNavLabelStyle(mobileTab === "backlog", theme)}
                 >
                   Бэклог
                 </span>
@@ -379,9 +386,8 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
             >
               <MenuBarsGlyph className="shrink-0" />
               <span
-                className={`max-w-full truncate px-0.5 text-center text-[10px] leading-tight ${
-                  mobileMenuOpen ? "text-black dark:text-white" : ""
-                }`}
+                className="max-w-full truncate px-0.5 text-center text-[10px] leading-tight"
+                style={mobileNavLabelStyle(mobileMenuOpen, theme)}
               >
                 Меню
               </span>
@@ -433,7 +439,7 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
               </button>
             </div>
             <div
-              className={`rounded-lg p-1 ${
+              className={`rounded-lg p-1 [-webkit-text-size-adjust:100%] [text-size-adjust:100%] ${
                 theme === "light"
                   ? "border border-[#dadada] bg-[var(--surface)]"
                   : "border border-white/10 bg-white/5"
@@ -448,7 +454,8 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
                       setStatusFilter(key);
                       setMobileMenuOpen(false);
                     }}
-                    className={`rounded-md px-1 py-1.5 text-center text-[8px] leading-snug transition-colors ${
+                    style={{ fontSize: 8, lineHeight: 1.25 }}
+                    className={`rounded-md px-0.5 py-1 text-center font-normal transition-colors ${
                       statusFilter === key
                         ? theme === "light"
                           ? "bg-[#eeedeb] font-medium text-[var(--foreground)]"
