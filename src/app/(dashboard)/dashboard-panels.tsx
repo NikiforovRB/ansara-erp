@@ -1908,66 +1908,64 @@ export function PaymentsFormPanel({
                     <td colSpan={4} className="p-0 align-top">
                       {editLedger === i ? (
                         <div className="space-y-2 py-2">
-                          <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:gap-3">
-                            <div className="flex shrink-0 flex-wrap items-end gap-1">
-                              <div className="flex w-[9.25rem] min-w-0 flex-col gap-0.5">
-                                <SettingsLbl>Дата</SettingsLbl>
-                                <DatePickerField
-                                  value={row.paymentDate}
-                                  onChange={(v) =>
-                                    setLedger((prev) =>
-                                      prev.map((x, j) =>
-                                        j === i ? { ...x, paymentDate: v } : x,
-                                      ),
-                                    )
-                                  }
-                                  className={fieldClass("w-full text-left")}
-                                />
-                              </div>
-                              <div className="flex w-[9.25rem] min-w-0 flex-col gap-0.5">
-                                <SettingsLbl>Сумма</SettingsLbl>
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  className={fieldClass("w-full")}
-                                  placeholder="Сумма"
-                                  value={
-                                    row.amountRubles === 0
-                                      ? ""
-                                      : formatThousandsRub(row.amountRubles)
-                                  }
-                                  onChange={(e) => {
-                                    const d = e.target.value.replace(/\D/g, "");
-                                    const n = d === "" ? 0 : Number(d);
-                                    setLedger((prev) =>
-                                      prev.map((x, j) =>
-                                        j === i
-                                          ? {
-                                              ...x,
-                                              amountRubles: Number.isFinite(n) ? n : 0,
-                                            }
-                                          : x,
-                                      ),
-                                    );
-                                  }}
-                                />
-                              </div>
-                            </div>
-                            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                              <SettingsLbl>Комментарий</SettingsLbl>
-                              <input
-                                className={fieldClass("w-full min-w-0")}
-                                placeholder="Комментарий"
-                                value={row.comment ?? ""}
-                                onChange={(e) =>
+                          <div className="flex shrink-0 flex-wrap items-end gap-1">
+                            <div className="flex w-[9.25rem] min-w-0 flex-col gap-0.5">
+                              <SettingsLbl>Дата</SettingsLbl>
+                              <DatePickerField
+                                value={row.paymentDate}
+                                onChange={(v) =>
                                   setLedger((prev) =>
                                     prev.map((x, j) =>
-                                      j === i ? { ...x, comment: e.target.value || null } : x,
+                                      j === i ? { ...x, paymentDate: v } : x,
                                     ),
                                   )
                                 }
+                                className={fieldClass("w-full text-left")}
                               />
                             </div>
+                            <div className="flex w-[9.25rem] min-w-0 flex-col gap-0.5">
+                              <SettingsLbl>Сумма</SettingsLbl>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                className={fieldClass("w-full")}
+                                placeholder="Сумма"
+                                value={
+                                  row.amountRubles === 0
+                                    ? ""
+                                    : formatThousandsRub(row.amountRubles)
+                                }
+                                onChange={(e) => {
+                                  const d = e.target.value.replace(/\D/g, "");
+                                  const n = d === "" ? 0 : Number(d);
+                                  setLedger((prev) =>
+                                    prev.map((x, j) =>
+                                      j === i
+                                        ? {
+                                            ...x,
+                                            amountRubles: Number.isFinite(n) ? n : 0,
+                                          }
+                                        : x,
+                                    ),
+                                  );
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex min-w-0 w-full flex-col gap-0.5">
+                            <SettingsLbl>Комментарий</SettingsLbl>
+                            <input
+                              className={fieldClass("w-full min-w-0")}
+                              placeholder="Комментарий"
+                              value={row.comment ?? ""}
+                              onChange={(e) =>
+                                setLedger((prev) =>
+                                  prev.map((x, j) =>
+                                    j === i ? { ...x, comment: e.target.value || null } : x,
+                                  ),
+                                )
+                              }
+                            />
                           </div>
                           <div className="flex flex-wrap gap-3">
                             <button
@@ -1993,31 +1991,34 @@ export function PaymentsFormPanel({
                           </div>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 py-2">
-                          <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
-                            {formatRuDayMonthWeekday(row.paymentDate)}
+                        <div className="flex flex-col gap-1 py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
+                              {formatRuDayMonthWeekday(row.paymentDate)}
+                            </div>
+                            <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
+                              {formatThousandsRub(row.amountRubles)} ₽
+                            </div>
+                            <div className="min-w-0 flex-1" aria-hidden />
+                            <div className="w-10 shrink-0 text-right">
+                              <button
+                                type="button"
+                                aria-label="Редактировать оплату"
+                                className="inline-flex p-0.5"
+                                onClick={() => setEditLedger(i)}
+                              >
+                                <Image
+                                  src={theme === "dark" ? editBlack : editIcon}
+                                  alt=""
+                                  width={18}
+                                  height={18}
+                                  unoptimized
+                                />
+                              </button>
+                            </div>
                           </div>
-                          <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
-                            {formatThousandsRub(row.amountRubles)} ₽
-                          </div>
-                          <div className="min-w-0 flex-1 truncate text-[var(--foreground)]">
+                          <div className="min-w-0 whitespace-pre-wrap break-words text-[var(--foreground)]">
                             {row.comment?.trim() || "—"}
-                          </div>
-                          <div className="w-10 shrink-0 text-right">
-                            <button
-                              type="button"
-                              aria-label="Редактировать оплату"
-                              className="inline-flex p-0.5"
-                              onClick={() => setEditLedger(i)}
-                            >
-                              <Image
-                                src={theme === "dark" ? editBlack : editIcon}
-                                alt=""
-                                width={18}
-                                height={18}
-                                unoptimized
-                              />
-                            </button>
                           </div>
                         </div>
                       )}
@@ -2171,43 +2172,45 @@ export function PaymentsFormPanel({
                           </div>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 py-2">
-                          <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
-                            {formatRuDayMonthWeekday(row.docDate)}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            {row.url.trim() ? (
-                              <a
-                                href={row.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-sm underline decoration-[#5A86EE]/50 underline-offset-[3px]"
-                                style={{ color: "#5A86EE" }}
+                        <div className="flex flex-col gap-1 py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
+                              {formatRuDayMonthWeekday(row.docDate)}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              {row.url.trim() ? (
+                                <a
+                                  href={row.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-sm underline decoration-[#5A86EE]/50 underline-offset-[3px]"
+                                  style={{ color: "#5A86EE" }}
+                                >
+                                  {row.linkTitle?.trim() || row.url}
+                                </a>
+                              ) : (
+                                <span className="text-[var(--muted)]">—</span>
+                              )}
+                            </div>
+                            <div className="w-10 shrink-0 text-right">
+                              <button
+                                type="button"
+                                aria-label="Редактировать документ"
+                                className="inline-flex p-0.5"
+                                onClick={() => setEditDoc(i)}
                               >
-                                {row.linkTitle?.trim() || row.url}
-                              </a>
-                            ) : (
-                              <span className="text-[var(--muted)]">—</span>
-                            )}
+                                <Image
+                                  src={theme === "dark" ? editBlack : editIcon}
+                                  alt=""
+                                  width={18}
+                                  height={18}
+                                  unoptimized
+                                />
+                              </button>
+                            </div>
                           </div>
-                          <div className="min-w-0 flex-1 truncate text-[var(--foreground)]">
-                            {row.comment?.trim() ? row.comment.trim() : null}
-                          </div>
-                          <div className="w-10 shrink-0 text-right">
-                            <button
-                              type="button"
-                              aria-label="Редактировать документ"
-                              className="inline-flex p-0.5"
-                              onClick={() => setEditDoc(i)}
-                            >
-                              <Image
-                                src={theme === "dark" ? editBlack : editIcon}
-                                alt=""
-                                width={18}
-                                height={18}
-                                unoptimized
-                              />
-                            </button>
+                          <div className="min-w-0 whitespace-pre-wrap break-words text-[var(--foreground)]">
+                            {row.comment?.trim() ? row.comment.trim() : "—"}
                           </div>
                         </div>
                       )}

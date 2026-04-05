@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import type { CSSProperties } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppHeader as Header, type HeaderUser } from "@/components/app-header";
@@ -18,6 +19,8 @@ import beklogBlack from "@/icons/beklog-black.svg";
 import beklogIcon from "@/icons/beklog.svg";
 import calendarBlack from "@/icons/calendar-black.svg";
 import calendarIcon from "@/icons/calendar.svg";
+import closeBlack from "@/icons/close-black.svg";
+import closeNav from "@/icons/close-nav.svg";
 import folderIcon from "@/icons/folder.svg";
 import folderNavIcon from "@/icons/folder-nav.svg";
 import groupsIcon from "@/icons/groups.svg";
@@ -56,8 +59,8 @@ function MenuBarsGlyph({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      width={22}
-      height={22}
+      width={24}
+      height={24}
       className={className}
       aria-hidden
     >
@@ -70,6 +73,13 @@ function MenuBarsGlyph({ className }: { className?: string }) {
       />
     </svg>
   );
+}
+
+function navTabIconFilter(active: boolean, theme: "light" | "dark"): CSSProperties | undefined {
+  if (!active) return undefined;
+  return {
+    filter: theme === "light" ? "brightness(0)" : "brightness(0) invert(1)",
+  };
 }
 
 export function DashboardApp({ user }: { user: HeaderUser }) {
@@ -230,7 +240,7 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
 
       <div
         className={`overflow-x-auto px-[40px] pt-[26px] max-[699px]:px-5 ${
-          isNarrow ? "pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]" : "pb-8"
+          isNarrow ? "pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))]" : "pb-8"
         }`}
       >
         {loading ? (
@@ -254,18 +264,27 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
 
       {isNarrow ? (
         <nav
-          className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--table-divider)] bg-[var(--surface)] pb-[env(safe-area-inset-bottom,0px)] pt-1 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]"
+          className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--table-divider)] bg-[var(--surface)] pb-[calc(20px+env(safe-area-inset-bottom,0px))] pt-2 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]"
           aria-label="Разделы таблицы"
         >
           <div className="grid grid-cols-5 gap-0 px-1">
             <button
               type="button"
               onClick={() => setMobileTab("deadline")}
-              className={`flex min-w-0 flex-col items-center gap-0.5 py-1.5 ${
-                mobileTab === "deadline" ? "text-[#5A86EE]" : "text-[var(--muted)]"
+              className={`flex min-w-0 flex-col items-center gap-1 py-2 ${
+                mobileTab === "deadline"
+                  ? "text-[#000000] dark:text-[#ffffff]"
+                  : "text-[var(--muted)]"
               }`}
             >
-              <Image src={calSrc} alt="" width={22} height={22} unoptimized />
+              <Image
+                src={calSrc}
+                alt=""
+                width={24}
+                height={24}
+                unoptimized
+                style={navTabIconFilter(mobileTab === "deadline", theme)}
+              />
               <span className="max-w-full truncate px-0.5 text-center text-[10px] leading-tight">
                 Дедлайн
               </span>
@@ -273,11 +292,18 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
             <button
               type="button"
               onClick={() => setMobileTab("lk")}
-              className={`flex min-w-0 flex-col items-center gap-0.5 py-1.5 ${
-                mobileTab === "lk" ? "text-[#5A86EE]" : "text-[var(--muted)]"
+              className={`flex min-w-0 flex-col items-center gap-1 py-2 ${
+                mobileTab === "lk" ? "text-[#000000] dark:text-[#ffffff]" : "text-[var(--muted)]"
               }`}
             >
-              <Image src={lkSrc} alt="" width={22} height={22} unoptimized />
+              <Image
+                src={lkSrc}
+                alt=""
+                width={24}
+                height={24}
+                unoptimized
+                style={navTabIconFilter(mobileTab === "lk", theme)}
+              />
               <span className="max-w-full truncate px-0.5 text-center text-[10px] leading-tight">
                 ЛК
               </span>
@@ -285,11 +311,20 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
             <button
               type="button"
               onClick={() => setMobileTab("payments")}
-              className={`flex min-w-0 flex-col items-center gap-0.5 py-1.5 ${
-                mobileTab === "payments" ? "text-[#5A86EE]" : "text-[var(--muted)]"
+              className={`flex min-w-0 flex-col items-center gap-1 py-2 ${
+                mobileTab === "payments"
+                  ? "text-[#000000] dark:text-[#ffffff]"
+                  : "text-[var(--muted)]"
               }`}
             >
-              <Image src={paySrc} alt="" width={22} height={22} unoptimized />
+              <Image
+                src={paySrc}
+                alt=""
+                width={24}
+                height={24}
+                unoptimized
+                style={navTabIconFilter(mobileTab === "payments", theme)}
+              />
               <span className="max-w-full truncate px-0.5 text-center text-[10px] leading-tight">
                 Оплаты
               </span>
@@ -300,11 +335,22 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
               onClick={() => {
                 if (showBacklogColumn) setMobileTab("backlog");
               }}
-              className={`flex min-w-0 flex-col items-center gap-0.5 py-1.5 ${
+              className={`flex min-w-0 flex-col items-center gap-1 py-2 ${
                 !showBacklogColumn ? "cursor-not-allowed opacity-40" : ""
-              } ${mobileTab === "backlog" ? "text-[#5A86EE]" : "text-[var(--muted)]"}`}
+              } ${
+                mobileTab === "backlog"
+                  ? "text-[#000000] dark:text-[#ffffff]"
+                  : "text-[var(--muted)]"
+              }`}
             >
-              <Image src={blSrc} alt="" width={22} height={22} unoptimized />
+              <Image
+                src={blSrc}
+                alt=""
+                width={24}
+                height={24}
+                unoptimized
+                style={navTabIconFilter(mobileTab === "backlog", theme)}
+              />
               <span className="max-w-full truncate px-0.5 text-center text-[10px] leading-tight">
                 Бэклог
               </span>
@@ -312,8 +358,8 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className={`flex min-w-0 flex-col items-center gap-0.5 py-1.5 ${
-                mobileMenuOpen ? "text-[#5A86EE]" : "text-[var(--muted)]"
+              className={`flex min-w-0 flex-col items-center gap-1 py-2 ${
+                mobileMenuOpen ? "text-[#000000] dark:text-[#ffffff]" : "text-[var(--muted)]"
               }`}
             >
               <MenuBarsGlyph className="shrink-0" />
@@ -339,10 +385,41 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
             aria-modal="true"
             aria-labelledby="mobile-dashboard-menu-title"
           >
-            <h2 id="mobile-dashboard-menu-title" className="mb-4 text-center text-base font-medium">
-              Меню
-            </h2>
-            <div className="relative rounded-lg bg-black/10 p-1 dark:bg-white/10">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 id="mobile-dashboard-menu-title" className="text-base font-medium">
+                Меню
+              </h2>
+              <button
+                type="button"
+                aria-label="Закрыть"
+                onClick={() => setMobileMenuOpen(false)}
+                className="group relative inline-flex h-9 w-9 shrink-0 items-center justify-center"
+              >
+                <Image
+                  src={closeBlack}
+                  alt=""
+                  width={20}
+                  height={20}
+                  unoptimized
+                  className="transition-opacity duration-200 group-hover:opacity-0 dark:invert"
+                />
+                <Image
+                  src={closeNav}
+                  alt=""
+                  width={20}
+                  height={20}
+                  unoptimized
+                  className="absolute opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                />
+              </button>
+            </div>
+            <div
+              className={`rounded-lg p-1 ${
+                theme === "light"
+                  ? "border border-[#dadada] bg-[var(--surface)]"
+                  : "border border-white/10 bg-white/5"
+              }`}
+            >
               <div className="relative z-10 grid grid-cols-3 gap-1">
                 {MOBILE_STATUS_TABS.map(([key, label]) => (
                   <button
@@ -352,9 +429,11 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
                       setStatusFilter(key);
                       setMobileMenuOpen(false);
                     }}
-                    className={`rounded-md px-2 py-2.5 text-center text-xs leading-tight transition-colors sm:text-sm ${
+                    className={`rounded-md px-1.5 py-2 text-center text-[10px] leading-tight transition-colors ${
                       statusFilter === key
-                        ? "bg-white/20 font-medium text-[var(--foreground)] dark:bg-white/15"
+                        ? theme === "light"
+                          ? "bg-[#eeedeb] font-medium text-[var(--foreground)]"
+                          : "bg-white/15 font-medium text-[var(--foreground)]"
                         : "text-[var(--muted)] hover:text-[var(--foreground)]"
                     }`}
                   >

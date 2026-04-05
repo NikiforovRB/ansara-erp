@@ -29,7 +29,7 @@ import { formatRuDayMonthWeekday } from "@/lib/dates";
 import { xhrGetJsonWithProgress } from "@/lib/xhr-get-json";
 
 type ApiPayload = {
-  access?: "staff" | "guest";
+  access: "staff" | "guest";
   full: {
     project: {
       lkTitle: string;
@@ -373,7 +373,7 @@ export function LkClient({ slug }: { slug: string }) {
     );
   }
 
-  const { full } = data;
+  const { full, access } = data;
   const remaining = full.project.remainingAmountRubles ?? 0;
 
   const cardBg = theme === "dark" ? "#1a1a1a" : "#ffffff";
@@ -383,7 +383,7 @@ export function LkClient({ slug }: { slug: string }) {
     <div className="flex min-h-screen min-w-0 max-w-full flex-col overflow-x-hidden text-[var(--foreground)]">
       <LkViewHeader />
       <div
-        className="flex min-w-0 flex-1 flex-col px-3 py-8 sm:px-4"
+        className={`flex min-w-0 flex-1 flex-col px-3 py-8 sm:px-4${access === "staff" ? " pb-24" : ""}`}
         style={{ backgroundColor: lkPageBg }}
       >
         <div className="mx-auto w-full min-w-0 max-w-[1200px] flex-1">
@@ -627,6 +627,24 @@ export function LkClient({ slug }: { slug: string }) {
           </div>
         </div>
       </div>
+
+      {access === "staff" ? (
+        <Link
+          href="/"
+          className="fixed z-50 rounded-lg px-4 py-2.5 text-sm font-medium shadow-md transition-opacity hover:opacity-90"
+          style={{
+            bottom: "max(1rem, env(safe-area-inset-bottom, 0px))",
+            left: "max(1rem, env(safe-area-inset-left, 0px))",
+            backgroundColor: cardBg,
+            borderWidth: 1,
+            borderStyle: "solid",
+            borderColor: theme === "dark" ? "#474747" : "#dadada",
+            color: "var(--foreground)",
+          }}
+        >
+          Назад
+        </Link>
+      ) : null}
 
       {slider ? (
         <div

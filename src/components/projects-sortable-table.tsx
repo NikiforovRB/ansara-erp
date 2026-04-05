@@ -782,7 +782,7 @@ export function ProjectsSortableTable({
                 Текущий дедлайн
               </TableHeadIcon>
             ) : mobileColumnMode === "lk" ? (
-              <div className="flex w-full justify-center">
+              <div className="flex w-full justify-start">
                 <TableHeadIcon iconLight={lkIcon} iconDark={lkBlack}>
                   ЛК заказчика
                 </TableHeadIcon>
@@ -842,7 +842,7 @@ export function ProjectsSortableTable({
                           Текущий дедлайн
                         </TableHeadIcon>
                       ) : mobileColumnMode === "lk" ? (
-                        <div className="flex w-full justify-center">
+                        <div className="flex w-full justify-start">
                           <TableHeadIcon iconLight={lkIcon} iconDark={lkBlack}>
                             ЛК заказчика
                           </TableHeadIcon>
