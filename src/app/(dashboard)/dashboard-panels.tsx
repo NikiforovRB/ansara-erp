@@ -40,6 +40,7 @@ import {
 } from "@/components/loading-skeleton";
 import { RightPanel } from "@/components/right-panel";
 import { useTheme } from "@/components/theme-provider";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   formatDateYmdLocal,
   dateYmdToEndIso,
@@ -1500,6 +1501,7 @@ export function PaymentsFormPanel({
   onSaved: () => void;
 }) {
   const { theme } = useTheme();
+  const isNarrowPayments = useMediaQuery("(max-width: 699px)");
   const [remaining, setRemaining] = useState(0);
   const [remStr, setRemStr] = useState("0");
   const [blocks, setBlocks] = useState<BlockRow[]>([]);
@@ -1990,6 +1992,38 @@ export function PaymentsFormPanel({
                             </button>
                           </div>
                         </div>
+                      ) : !isNarrowPayments ? (
+                        <div className="flex items-center gap-2 py-2">
+                          <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
+                            {formatRuDayMonthWeekday(row.paymentDate)}
+                          </div>
+                          <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
+                            {formatThousandsRub(row.amountRubles)} ₽
+                          </div>
+                          {row.comment?.trim() ? (
+                            <div className="min-w-0 flex-1 truncate text-[var(--foreground)]">
+                              {row.comment.trim()}
+                            </div>
+                          ) : (
+                            <div className="min-w-0 flex-1" aria-hidden />
+                          )}
+                          <div className="w-10 shrink-0 text-right">
+                            <button
+                              type="button"
+                              aria-label="Редактировать оплату"
+                              className="inline-flex p-0.5"
+                              onClick={() => setEditLedger(i)}
+                            >
+                              <Image
+                                src={theme === "dark" ? editBlack : editIcon}
+                                alt=""
+                                width={18}
+                                height={18}
+                                unoptimized
+                              />
+                            </button>
+                          </div>
+                        </div>
                       ) : row.comment?.trim() ? (
                         <div className="flex flex-col gap-1 py-2">
                           <div className="flex items-center gap-2">
@@ -2194,6 +2228,50 @@ export function PaymentsFormPanel({
                               }}
                             >
                               Удалить
+                            </button>
+                          </div>
+                        </div>
+                      ) : !isNarrowPayments ? (
+                        <div className="flex items-center gap-2 py-2">
+                          <div className="w-[150px] max-w-[150px] shrink-0 text-[var(--foreground)]">
+                            {formatRuDayMonthWeekday(row.docDate)}
+                          </div>
+                          <div className="min-w-0 flex-1 truncate">
+                            {row.url.trim() ? (
+                              <a
+                                href={row.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-sm underline decoration-[#5A86EE]/50 underline-offset-[3px]"
+                                style={{ color: "#5A86EE" }}
+                              >
+                                {row.linkTitle?.trim() || row.url}
+                              </a>
+                            ) : (
+                              <span className="text-[var(--muted)]">—</span>
+                            )}
+                          </div>
+                          {row.comment?.trim() ? (
+                            <div className="min-w-0 flex-1 truncate text-[var(--foreground)]">
+                              {row.comment.trim()}
+                            </div>
+                          ) : (
+                            <div className="min-w-0 flex-1" aria-hidden />
+                          )}
+                          <div className="w-10 shrink-0 text-right">
+                            <button
+                              type="button"
+                              aria-label="Редактировать документ"
+                              className="inline-flex p-0.5"
+                              onClick={() => setEditDoc(i)}
+                            >
+                              <Image
+                                src={theme === "dark" ? editBlack : editIcon}
+                                alt=""
+                                width={18}
+                                height={18}
+                                unoptimized
+                              />
                             </button>
                           </div>
                         </div>

@@ -61,8 +61,9 @@ function cols(showBacklog: boolean) {
     : "grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)_minmax(0,0.9fr)_minmax(0,1.15fr)_40px] gap-x-10";
 }
 
+/** Первая колонка (~на 30% уже прежнего 1fr при второй 1.1fr). */
 const colsMobile =
-  "grid grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-x-4";
+  "grid grid-cols-[minmax(0,0.68fr)_minmax(0,1.32fr)] gap-x-4";
 
 export type MobileColumnMode = "deadline" | "lk" | "payments" | "backlog";
 
@@ -399,9 +400,19 @@ function SortableProjectRow({
             />
           ) : null}
           <div className="min-w-0 flex-1">
-            <div className="font-medium">{row.project.customerName}</div>
+            <div
+              className={
+                mobileColumnMode ? "text-[13px] font-medium leading-snug" : "font-medium"
+              }
+            >
+              {row.project.customerName}
+            </div>
             {row.project.shortDescription ? (
-              <div className="mt-1 whitespace-pre-wrap text-xs text-[var(--muted)]">
+              <div
+                className={`mt-1 whitespace-pre-wrap text-[var(--muted)] ${
+                  mobileColumnMode ? "text-[11px] leading-snug" : "text-xs"
+                }`}
+              >
                 {row.project.shortDescription}
               </div>
             ) : null}

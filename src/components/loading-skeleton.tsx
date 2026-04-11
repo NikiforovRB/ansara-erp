@@ -36,7 +36,8 @@ const colsSkeletonFull = (showBacklogColumn: boolean) =>
     ? "grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)_minmax(0,0.9fr)_minmax(0,1.15fr)_minmax(0,1.05fr)_40px] gap-x-10"
     : "grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)_minmax(0,0.9fr)_minmax(0,1.15fr)_40px] gap-x-10";
 
-const colsSkeletonMobile = "grid grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-x-4";
+const colsSkeletonMobile =
+  "grid grid-cols-[minmax(0,0.68fr)_minmax(0,1.32fr)] gap-x-4";
 
 /** Скелетон основной таблицы проектов (сетка как у шапки таблицы). */
 export function DashboardMainTableSkeleton({

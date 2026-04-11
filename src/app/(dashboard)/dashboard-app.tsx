@@ -405,7 +405,7 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
             onClick={() => setMobileMenuOpen(false)}
           />
           <div
-            className="absolute bottom-0 left-0 right-0 max-h-[min(520px,85vh)] overflow-y-auto rounded-t-2xl bg-[var(--surface)] px-5 pb-[calc(1.25rem+25px+env(safe-area-inset-bottom,0px))] pt-5 text-[var(--foreground)] shadow-xl"
+            className="absolute bottom-0 left-0 right-0 max-h-[min(640px,92vh)] overflow-y-auto rounded-t-2xl bg-[var(--surface)] px-5 pb-[calc(1.25rem+25px+env(safe-area-inset-bottom,0px))] pt-5 text-[var(--foreground)] shadow-xl"
             role="dialog"
             aria-modal="true"
             aria-labelledby="mobile-dashboard-menu-title"
@@ -439,13 +439,13 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
               </button>
             </div>
             <div
-              className={`rounded-lg p-1 [-webkit-text-size-adjust:100%] [text-size-adjust:100%] ${
+              className={`rounded-lg p-1.5 [-webkit-text-size-adjust:100%] [text-size-adjust:100%] ${
                 theme === "light"
                   ? "border border-[#dadada] bg-[var(--surface)]"
                   : "border border-white/10 bg-white/5"
               }`}
             >
-              <div className="relative z-10 grid grid-cols-3 gap-1">
+              <div className="relative z-10 flex flex-col gap-1.5">
                 {MOBILE_STATUS_TABS.map(([key, label]) => (
                   <button
                     key={key}
@@ -454,8 +454,7 @@ export function DashboardApp({ user }: { user: HeaderUser }) {
                       setStatusFilter(key);
                       setMobileMenuOpen(false);
                     }}
-                    style={{ fontSize: 8, lineHeight: 1.25 }}
-                    className={`rounded-md px-0.5 py-1 text-center font-normal transition-colors ${
+                    className={`rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
                       statusFilter === key
                         ? theme === "light"
                           ? "bg-[#eeedeb] font-medium text-[var(--foreground)]"

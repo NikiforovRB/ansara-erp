@@ -24,6 +24,7 @@ import sunIcon from "@/icons/sun.svg";
 import sunNavIcon from "@/icons/sun-nav.svg";
 import closeBlack from "@/icons/close-black.svg";
 import closeNav from "@/icons/close-nav.svg";
+import leftIcon from "@/icons/left.svg";
 import { paymentChipStyles } from "@/lib/payment-chip";
 import { formatRuDayMonthWeekday } from "@/lib/dates";
 import { xhrGetJsonWithProgress } from "@/lib/xhr-get-json";
@@ -383,7 +384,9 @@ export function LkClient({ slug }: { slug: string }) {
     <div className="flex min-h-screen min-w-0 max-w-full flex-col overflow-x-hidden text-[var(--foreground)]">
       <LkViewHeader />
       <div
-        className={`flex min-w-0 flex-1 flex-col px-3 py-8 sm:px-4${access === "staff" ? " pb-24" : ""}`}
+        className={`flex min-w-0 flex-1 flex-col px-3 py-8 sm:px-4${
+          access === "staff" ? " pb-24 pr-2 sm:pr-28" : ""
+        }`}
         style={{ backgroundColor: lkPageBg }}
       >
         <div className="mx-auto w-full min-w-0 max-w-[1200px] flex-1">
@@ -631,17 +634,14 @@ export function LkClient({ slug }: { slug: string }) {
       {access === "staff" ? (
         <Link
           href="/"
-          className="fixed z-50 rounded-lg px-4 py-2.5 text-sm font-medium shadow-md transition-opacity hover:opacity-90"
+          className="fixed z-50 inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium text-white shadow-md transition-opacity hover:opacity-90"
           style={{
-            bottom: "max(1rem, env(safe-area-inset-bottom, 0px))",
-            left: "max(1rem, env(safe-area-inset-left, 0px))",
-            backgroundColor: cardBg,
-            borderWidth: 1,
-            borderStyle: "solid",
-            borderColor: theme === "dark" ? "#474747" : "#dadada",
-            color: "var(--foreground)",
+            bottom: "calc(1rem + 15px + env(safe-area-inset-bottom, 0px))",
+            right: "max(1rem, env(safe-area-inset-right, 0px))",
+            backgroundColor: "#25273a",
           }}
         >
+          <Image src={leftIcon} alt="" width={18} height={18} unoptimized />
           Назад
         </Link>
       ) : null}
